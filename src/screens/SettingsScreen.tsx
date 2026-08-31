@@ -11,8 +11,10 @@ export function SettingsScreen() {
   const settings = useLiveQuery(() => db.settings.get('settings'))
   const activeVersion = useActivePlanVersion()
   const versions =
-    useLiveQuery(() => db.planVersions.orderBy('createdAt').reverse().toArray()) ??
-    []
+    useLiveQuery(async () => {
+      const rows = await db.planVersions.toArray()
+      return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    }) ?? []
   const [planMsg, setPlanMsg] = useState('')
   const [notifMsg, setNotifMsg] = useState('')
   const [backupMsg, setBackupMsg] = useState('')

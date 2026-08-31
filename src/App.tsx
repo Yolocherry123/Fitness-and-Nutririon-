@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { BottomNav } from './components/BottomNav'
 import { ReminderHost } from './components/ReminderHost'
 import { ensureSeeded, db } from './db'
@@ -35,22 +36,24 @@ function AppRoutes() {
 
   return (
     <div className="app-shell">
-      <Routes>
-        <Route path="/" element={<TodayScreen />} />
-        <Route path="/plan" element={<PlanScreen />} />
-        <Route path="/workout" element={<WorkoutHubScreen />} />
-        <Route path="/workout/session/:dayId" element={<WorkoutSessionScreen />} />
-        <Route path="/progress" element={<ProgressScreen />} />
-        <Route path="/review" element={<ReviewScreen />} />
-        <Route path="/recipes" element={<RecipesScreen />} />
-        <Route path="/program" element={<ProgramEditorScreen />} />
-        <Route path="/food-plan" element={<FoodPlanEditorScreen />} />
-        <Route path="/settings" element={<SettingsScreen />} />
-        <Route path="/data" element={<DataScreen />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/" element={<TodayScreen />} />
+          <Route path="/plan" element={<PlanScreen />} />
+          <Route path="/workout" element={<WorkoutHubScreen />} />
+          <Route path="/workout/session/:dayId" element={<WorkoutSessionScreen />} />
+          <Route path="/progress" element={<ProgressScreen />} />
+          <Route path="/review" element={<ReviewScreen />} />
+          <Route path="/recipes" element={<RecipesScreen />} />
+          <Route path="/program" element={<ProgramEditorScreen />} />
+          <Route path="/food-plan" element={<FoodPlanEditorScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/data" element={<DataScreen />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <ReminderHost />
+      </ErrorBoundary>
       <BottomNav />
-      <ReminderHost />
     </div>
   )
 }
@@ -59,7 +62,11 @@ export default function App() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    ensureSeeded().then(() => setReady(true))
+    ensureSeeded()
+      .catch((err) => {
+        console.error('Failed to seed database', err)
+      })
+      .finally(() => setReady(true))
   }, [])
 
   if (!ready) {
@@ -71,8 +78,10 @@ export default function App() {
     )
   }
 
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '')
+
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+    <BrowserRouter basename={base || undefined}>
       <AppRoutes />
     </BrowserRouter>
   )
