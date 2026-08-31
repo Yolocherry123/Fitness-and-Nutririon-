@@ -1,0 +1,675 @@
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { CategoryBadge } from '../components/Badges'
+import { HeaderIconButton, useHeaderHints } from '../components/HeaderActions'
+import { IconCheckIn, IconGear, IconScale } from '../components/Icons'
+import { db, uid } from '../db'
+import {
+  creatineMissMessage,
+  isChickenOrKebabAction,
+  isCreatineAction,
+  scoreCompletions,
+  suggestCalorieGapTool,
+} from '../engines/logic'
+import { useWorkoutDays } from '../hooks/useProgram'
+import {
+  formatDisplayDate,
+  greetingForHour,
+  todayISO,
+  dayOfWeekFromDate,
+} from '../lib/dates'
+import { foodActionsForDate, groupByTimeWindow, WINDOW_LABELS } from '../lib/food'
+import type { ActionCategory, ChickenMeasureType, DigestionStatus, FoodAction } from '../models/types'
+
+const MEASURE_OPTIONS: { value: ChickenMeasureType; label: string }[] = [
+  { value: 'BONE_IN', label: 'Bone-in serving' },
+  { value: 'COOKED_EDIBLE', label: 'Cooked edible meat' },
+  { value: 'BREAST', label: 'Breast' },
+  { value: 'THIGH', label: 'Thigh' },
+]
+
+const TIP_KEY = 'forge-tip-dismissed-v1'
+
+function catClass(category: ActionCategory): string {
+  if (category === 'CORE') return 'cat-core'
+  if (category === 'SCHEDULED') return 'cat-scheduled'
+  return 'cat-optional'
+}
+
+export function TodayScreen() {
+  const [date, setDate] = useState(todayISO)
+  const day = dayOfWeekFromDate(date)
+
+  useEffect(() => {
+    const tick = () => setDate(todayISO())
+    const id = window.setInterval(tick, 60_000)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tick()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
+
+  const profile = useLiveQuery(() => db.profile.get('user'))
+  const allFood = useLiveQuery(() => db.foodActions.toArray()) ?? []
+  const completions =
+    useLiveQuery(() => db.completions.where('date').equals(date).toArray(), [date]) ?? []
+  const bwToday = useLiveQuery(() => db.bodyweight.where('date').equals(date).first(), [date])
+  const checkIn = useLiveQuery(() => db.checkIns.get(date), [date])
+  const workoutDays = useWorkoutDays()
+  const workoutDay = workoutDays.find((d) => d.day === day)
+
+  const session = useLiveQuery(async () => {
+    if (!workoutDay) return undefined
+    const rows = await db.sessions.where('date').equals(date).toArray()
+    return rows.find((s) => s.workoutDayId === workoutDay.id)
+  }, [date, workoutDay?.id])
+
+  const [bwOpen, setBwOpen] = useState(false)
+  const [weight, setWeight] = useState('')
+  const [showOptionalExtras, setShowOptionalExtras] = useState(false)
+  const [chickenTarget, setChickenTarget] = useState<FoodAction | null>(null)
+  const [chickenMeasure, setChickenMeasure] = useState<ChickenMeasureType>('BONE_IN')
+  const [chickenQty, setChickenQty] = useState('')
+  const [creatineNote, setCreatineNote] = useState<string | null>(null)
+  const [checkInOpen, setCheckInOpen] = useState(false)
+  const [tipOpen, setTipOpen] = useState(() => {
+    try {
+      return localStorage.getItem(TIP_KEY) !== '1'
+    } catch {
+      return true
+    }
+  })
+  const [expandDone, setExpandDone] = useState(false)
+  const [showHints, dismissHints] = useHeaderHints()
+  const [pulseId, setPulseId] = useState<string | null>(null)
+
+  const actions = useMemo(
+    () =>
+      foodActionsForDate(allFood, date, {
+        profile,
+        digestionMode: profile?.digestionMode,
+      }),
+    [allFood, date, profile],
+  )
+
+  const primaryActions = actions.filter((a) => a.category !== 'OPTIONAL')
+  const nightOptionals = actions.filter(
+    (a) => a.category === 'OPTIONAL' && a.timeWindow === 'Night',
+  )
+  const optionalExtras = actions.filter(
+    (a) => a.category === 'OPTIONAL' && a.timeWindow !== 'Night',
+  )
+  const visible = showOptionalExtras
+    ? [...primaryActions, ...nightOptionals, ...optionalExtras]
+    : [...primaryActions, ...nightOptionals]
+  const scores = scoreCompletions(actions, completions)
+  const doneMap = new Map(completions.map((c) => [c.foodActionId, c]))
+
+  // Day clear / sticky next ignore OPTIONAL (including night)
+  const remaining = primaryActions.filter((a) => !doneMap.get(a.id)?.completed)
+  const completedItems = visible.filter((a) => doneMap.get(a.id)?.completed)
+  const remainingGroups = groupByTimeWindow(remaining)
+  const nextItem = remaining[0]
+  const nextWindow = nextItem
+    ? WINDOW_LABELS[nextItem.timeWindow] ?? nextItem.timeWindow
+    : null
+
+  const creatineAction = actions.find(isCreatineAction)
+  const creatineDone = creatineAction
+    ? doneMap.get(creatineAction.id)?.completed === true
+    : true
+  const hasScheduledChicken = actions.some(
+    (a) => a.category === 'SCHEDULED' && isChickenOrKebabAction(a),
+  )
+  const chickenDone = actions
+    .filter((a) => isChickenOrKebabAction(a) && a.category === 'SCHEDULED')
+    .every((a) => doneMap.get(a.id)?.completed)
+
+  // Only when something important is still open — not general core %
+  const showGapCard =
+    (!creatineDone && !!profile?.usesCreatine) ||
+    (hasScheduledChicken && !chickenDone)
+
+  async function writeCompletion(
+    action: FoodAction,
+    completed: boolean,
+    extra: Partial<import('../models/types').DailyCompletion> = {},
+  ) {
+    const existing = doneMap.get(action.id)
+    const now = new Date().toISOString()
+    await db.completions.put({
+      id: existing?.id ?? `${date}:${action.id}`,
+      date,
+      foodActionId: action.id,
+      completed,
+      logMode: extra.logMode ?? existing?.logMode ?? 'CHECKLIST',
+      notes: existing?.notes,
+      chickenMeasure: existing?.chickenMeasure,
+      actualQuantity: existing?.actualQuantity,
+      exactCalories: existing?.exactCalories,
+      exactProtein: existing?.exactProtein,
+      updatedAt: now,
+      ...extra,
+    })
+  }
+
+  async function toggle(action: FoodAction) {
+    const existing = doneMap.get(action.id)
+    const currentlyDone = existing?.completed === true
+
+    if (!currentlyDone && isChickenOrKebabAction(action)) {
+      setChickenTarget(action)
+      setChickenMeasure(
+        action.chickenMeasure ??
+          (/kebab/i.test(action.name) ? 'COOKED_EDIBLE' : 'BONE_IN'),
+      )
+      setChickenQty(existing?.actualQuantity ?? action.quantity ?? '')
+      return
+    }
+
+    if (currentlyDone && isCreatineAction(action)) {
+      await writeCompletion(action, false)
+      setCreatineNote(creatineMissMessage())
+      return
+    }
+
+    await writeCompletion(action, !currentlyDone)
+    if (isCreatineAction(action) && currentlyDone === false) {
+      setCreatineNote(null)
+    }
+    if (!currentlyDone) {
+      setPulseId(action.id)
+      window.setTimeout(() => setPulseId(null), 420)
+    }
+  }
+
+  async function saveChicken() {
+    if (!chickenTarget) return
+    await writeCompletion(chickenTarget, true, {
+      chickenMeasure,
+      actualQuantity: chickenQty || undefined,
+      logMode: 'APPROXIMATE',
+      notes: `Logged as ${chickenMeasure.replace('_', ' ').toLowerCase()}`,
+    })
+    setChickenTarget(null)
+    setPulseId(chickenTarget.id)
+    window.setTimeout(() => setPulseId(null), 420)
+  }
+
+  async function saveWeight() {
+    const w = parseFloat(weight)
+    if (!w || w < 30 || w > 200) return
+    const now = new Date().toISOString()
+    const id = `bw:${date}`
+    const existing =
+      bwToday ?? (await db.bodyweight.where('date').equals(date).first())
+    await db.bodyweight.put({
+      id: existing?.id ?? id,
+      date,
+      weightKg: w,
+      conditionsNote: existing?.conditionsNote ?? 'Morning weigh-in',
+      createdAt: existing?.createdAt ?? now,
+    })
+    if (profile) {
+      const cur = await db.profile.get('user')
+      if (cur) {
+        await db.profile.put({
+          ...cur,
+          currentWeightKg: w,
+          updatedAt: now,
+        })
+      }
+    }
+    setBwOpen(false)
+    setWeight('')
+  }
+
+  function dismissTip() {
+    try {
+      localStorage.setItem(TIP_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+    setTipOpen(false)
+  }
+
+  return (
+    <div className="page">
+      <div className="row-between">
+        <div>
+          <div className="brand">Forge</div>
+          <h1 style={{ marginTop: 4 }}>{greetingForHour()}</h1>
+          <p className="hero-status">{formatDisplayDate(date)}</p>
+        </div>
+        <div className="header-actions">
+          <HeaderIconButton
+            label="Weight"
+            active={!!bwToday}
+            showHint={showHints}
+            onHintSeen={dismissHints}
+            onClick={() => setBwOpen(true)}
+          >
+            <IconScale />
+          </HeaderIconButton>
+          <HeaderIconButton
+            label="Check-in"
+            active={!!checkIn}
+            onClick={() => {
+              dismissHints()
+              setCheckInOpen(true)
+            }}
+          >
+            <IconCheckIn />
+          </HeaderIconButton>
+          <HeaderIconButton
+            label="Settings"
+            to="/settings"
+            onHintSeen={dismissHints}
+          >
+            <IconGear />
+          </HeaderIconButton>
+        </div>
+      </div>
+
+      {tipOpen && (
+        <div className="tip-banner">
+          <p>
+            Optional items never count as failure. Focus on main meals, training, and creatine —
+            extras only when useful.
+          </p>
+          <button type="button" className="btn btn-secondary" onClick={dismissTip}>
+            Got it
+          </button>
+        </div>
+      )}
+
+      {profile?.digestionMode && (
+        <div className="card" style={{ marginTop: 12, borderColor: 'rgba(212,165,116,0.35)' }}>
+          <strong>Digestion Mode on</strong>
+          <p className="small muted" style={{ margin: '4px 0 0' }}>
+            Fiber extras are hidden. Not a medical diagnosis.
+          </p>
+        </div>
+      )}
+
+      {creatineNote && (
+        <div className="card" style={{ marginTop: 12, borderColor: 'rgba(212,165,116,0.4)' }}>
+          <strong>Creatine</strong>
+          <p className="small muted" style={{ margin: '4px 0 8px' }}>
+            {creatineNote}
+          </p>
+          <button className="btn btn-ghost" onClick={() => setCreatineNote(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Training first — primary action */}
+      <div className="card card-strong" style={{ marginTop: 14 }}>
+        <div className="row-between">
+          <div>
+            <div className="check-title">{workoutDay?.workoutName ?? '—'}</div>
+            <div className="check-sub">
+              {workoutDay?.type.replace('_', ' ')}
+              {session?.status === 'COMPLETED' ? ' · Done' : ''}
+            </div>
+          </div>
+          {workoutDay?.type === 'TRAINING' ? (
+            <Link
+              to={`/workout/session/${workoutDay.id}?date=${date}`}
+              className="btn btn-primary"
+            >
+              {session?.status === 'IN_PROGRESS'
+                ? 'Continue'
+                : session?.status === 'COMPLETED'
+                  ? 'View'
+                  : 'Start'}
+            </Link>
+          ) : workoutDay?.type === 'ACTIVE_RECOVERY' ? (
+            <Link
+              to={`/workout/session/${workoutDay.id}?date=${date}`}
+              className="btn btn-secondary"
+            >
+              Log walk
+            </Link>
+          ) : (
+            <span className="chip">Rest</span>
+          )}
+        </div>
+      </div>
+
+      {showGapCard && (
+        <div className="card reco" style={{ marginTop: 10 }}>
+          <div className="reco-primary">
+            {!creatineDone && profile?.usesCreatine
+              ? 'Take creatine (normal dose)'
+              : 'Use today’s scheduled chicken/kebab at dinner'}
+          </div>
+          <p className="small muted" style={{ margin: '6px 0 0' }}>
+            {suggestCalorieGapTool()}
+          </p>
+        </div>
+      )}
+
+      {/* Sticky next strip */}
+      <div className="sticky-next" style={{ marginTop: 12 }}>
+        <div>
+          <strong>
+            {nextItem
+              ? `Next: ${nextWindow}`
+              : remaining.length === 0
+                ? 'Day clear'
+                : 'Up next'}
+          </strong>
+          <div className="check-sub">
+            {nextItem ? nextItem.name : 'Core + scheduled done'}
+          </div>
+        </div>
+        <span className="chip">{remaining.length} left</span>
+      </div>
+
+      <div className="section-label" style={{ marginTop: 4 }}>
+        Today&apos;s food
+      </div>
+
+      {remainingGroups.map((g) => (
+        <div key={g.window}>
+          <div className="small faint" style={{ margin: '10px 0 6px' }}>
+            {WINDOW_LABELS[g.window] ?? g.window}
+          </div>
+          <div className="stack">
+            {g.items.map((a) => (
+              <FoodRow
+                key={a.id}
+                action={a}
+                done={false}
+                pulsing={pulseId === a.id}
+                detail={doneMap.get(a.id)}
+                milkPowder={
+                  !!a.allowsMilkPowderSub && !!profile?.milkPowderSubstitute
+                }
+                onToggle={() => toggle(a)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {completedItems.length > 0 && (
+        <details
+          className="collapsed-group"
+          open={expandDone}
+          onToggle={(e) => setExpandDone((e.target as HTMLDetailsElement).open)}
+        >
+          <summary>
+            {expandDone ? 'Hide' : 'Show'} {completedItems.length} completed
+          </summary>
+          <div className="stack" style={{ marginTop: 8 }}>
+            {completedItems.map((a) => (
+              <FoodRow
+                key={a.id}
+                action={a}
+                done
+                collapsed={!expandDone}
+                pulsing={pulseId === a.id}
+                detail={doneMap.get(a.id)}
+                milkPowder={
+                  !!a.allowsMilkPowderSub && !!profile?.milkPowderSubstitute
+                }
+                onToggle={() => toggle(a)}
+              />
+            ))}
+          </div>
+        </details>
+      )}
+
+      <button
+        className="btn btn-ghost btn-block"
+        style={{ marginTop: 8 }}
+        onClick={() => setShowOptionalExtras((v) => !v)}
+      >
+        {showOptionalExtras
+          ? 'Hide optional tools'
+          : `Optional tools (${optionalExtras.length})`}
+      </button>
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="row-between small">
+          <span>Core + scheduled</span>
+          <span>{scores.consistencyPct}%</span>
+        </div>
+        <div className="progress-bar" style={{ marginTop: 8 }}>
+          <span style={{ width: `${scores.consistencyPct}%` }} />
+        </div>
+        <p className="small faint" style={{ marginTop: 8, marginBottom: 0 }}>
+          {scores.coreDone}/{scores.coreTotal} core · {scores.scheduledDone}/
+          {scores.scheduledTotal} scheduled · optional never lowers this
+        </p>
+      </div>
+
+      <div className="row" style={{ marginTop: 14, gap: 8 }}>
+        <Link to="/recipes" className="btn btn-secondary" style={{ flex: 1 }}>
+          Recipes
+        </Link>
+        <Link to="/food-plan" className="btn btn-secondary" style={{ flex: 1 }}>
+          Food plan
+        </Link>
+      </div>
+      <Link
+        to="/data"
+        className="btn btn-ghost btn-block"
+        style={{ marginTop: 8 }}
+      >
+        Download / share my data
+      </Link>
+
+      {bwOpen && (
+        <div className="modal-backdrop" onClick={() => setBwOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Bodyweight</h2>
+            <p className="muted small">Similar morning conditions work best.</p>
+            <div className="field">
+              <label>Weight (kg)</label>
+              <input
+                className="input"
+                type="number"
+                step="0.1"
+                inputMode="decimal"
+                value={weight || (bwToday?.weightKg?.toString() ?? '')}
+                onChange={(e) => setWeight(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <button className="btn btn-primary btn-block" onClick={saveWeight}>
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+
+      {chickenTarget && (
+        <div className="modal-backdrop" onClick={() => setChickenTarget(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Log chicken / kebab</h2>
+            <p className="muted small">
+              Bone-in weight is not the same as edible meat weight.
+            </p>
+            <div className="field">
+              <label>Measurement type</label>
+              <select
+                className="select"
+                value={chickenMeasure}
+                onChange={(e) =>
+                  setChickenMeasure(e.target.value as ChickenMeasureType)
+                }
+              >
+                {MEASURE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Quantity (optional)</label>
+              <input
+                className="input"
+                value={chickenQty}
+                onChange={(e) => setChickenQty(e.target.value)}
+                placeholder="e.g. 320 g"
+              />
+            </div>
+            <button className="btn btn-primary btn-block" onClick={saveChicken}>
+              Mark complete
+            </button>
+          </div>
+        </div>
+      )}
+
+      {checkInOpen && (
+        <CheckInModal
+          date={date}
+          existing={checkIn}
+          onClose={() => setCheckInOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function FoodRow({
+  action,
+  done,
+  collapsed,
+  pulsing,
+  detail,
+  milkPowder,
+  onToggle,
+}: {
+  action: FoodAction
+  done: boolean
+  collapsed?: boolean
+  pulsing?: boolean
+  detail?: import('../models/types').DailyCompletion
+  milkPowder: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`check-row ${catClass(action.category)}${done ? ' done' : ''}${collapsed ? ' collapsed' : ''}${pulsing ? ' just-checked' : ''}`}
+      onClick={onToggle}
+    >
+      <span className="check-box">{done ? '✓' : ''}</span>
+      <span className="check-meta">
+        <span className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <span className="check-title">{action.name}</span>
+          {action.category === 'SCHEDULED' && (
+            <CategoryBadge category="SCHEDULED" />
+          )}
+        </span>
+        {!collapsed && (
+          <span className="check-sub">
+            {action.quantity
+              ? `${action.quantity}${action.unit ? ` ${action.unit}` : ''} · `
+              : ''}
+            {action.notes}
+            {milkPowder ? ' · Milk powder OK' : ''}
+            {detail?.chickenMeasure
+              ? ` · ${detail.chickenMeasure.replace(/_/g, ' ').toLowerCase()}${detail.actualQuantity ? ` (${detail.actualQuantity})` : ''}`
+              : ''}
+          </span>
+        )}
+      </span>
+    </button>
+  )
+}
+
+function CheckInModal({
+  date,
+  existing,
+  onClose,
+}: {
+  date: string
+  existing?: import('../models/types').DailyCheckIn
+  onClose: () => void
+}) {
+  const [energy, setEnergy] = useState(existing?.energy ?? 3)
+  const [appetite, setAppetite] = useState(existing?.appetite ?? 3)
+  const [digestion, setDigestion] = useState<DigestionStatus>(
+    existing?.digestion ?? 'Neutral',
+  )
+  const [soreness, setSoreness] = useState(existing?.soreness ?? 2)
+  const [stress, setStress] = useState(existing?.stress ?? 2)
+
+  async function save() {
+    await db.checkIns.put({
+      id: date,
+      date,
+      energy,
+      appetite,
+      digestion,
+      soreness,
+      stress,
+    })
+    onClose()
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2>Daily check-in</h2>
+        <ScaleField label="Energy" value={energy} onChange={setEnergy} />
+        <ScaleField label="Appetite" value={appetite} onChange={setAppetite} />
+        <div className="field">
+          <label>Digestion</label>
+          <select
+            className="select"
+            value={digestion}
+            onChange={(e) => setDigestion(e.target.value as DigestionStatus)}
+          >
+            <option>Good</option>
+            <option>Neutral</option>
+            <option>Poor</option>
+          </select>
+        </div>
+        <ScaleField label="Soreness" value={soreness} onChange={setSoreness} />
+        <ScaleField label="Stress" value={stress} onChange={setStress} />
+        <button className="btn btn-primary btn-block" onClick={save}>
+          Save check-in
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ScaleField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (n: number) => void
+}) {
+  return (
+    <div className="field">
+      <label>
+        {label}: {value}/5
+      </label>
+      <input
+        className="input"
+        type="range"
+        min={1}
+        max={5}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+    </div>
+  )
+}
