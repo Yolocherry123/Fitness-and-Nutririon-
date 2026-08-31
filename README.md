@@ -9,6 +9,14 @@ Mobile-first personal muscle-gain companion built from the v1.2 specification se
 3. Technical specification — architecture, models, acceptance tests
 4. README first — how to interpret CORE / SCHEDULED / OPTIONAL / CONFIRMED / RECONSTRUCTION
 
+## Live app
+
+**Phone / any browser:** https://yolocherry123.github.io/Fitness-and-Nutririon-/
+
+All logging works in the browser (IndexedDB on that device). Use **Download / share my data** to back up.
+
+Deploy: every push to `master` rebuilds GitHub Pages via Actions.
+
 ## Run locally
 
 ```bash
