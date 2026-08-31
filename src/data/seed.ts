@@ -28,6 +28,8 @@ export const DEFAULT_PROFILE: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'
   calorieTargetMax: 3100,
   proteinTargetMin: 110,
   proteinTargetMax: 125,
+  carbTargetMin: 320,
+  carbTargetMax: 400,
   waterGoalMl: 3000,
   digestionMode: false,
   onboardingComplete: false,
@@ -91,7 +93,7 @@ export function buildFoodActions(): FoodAction[] {
     }),
   )
 
-  // Pre-workout banana — training days default
+  // Pre-workout banana — training days only (whole fruit, not a shake)
   const trainingDays: DayOfWeek[] = ['Monday', 'Tuesday', 'Thursday', 'Friday', 'Saturday']
   for (const day of trainingDays) {
     actions.push({
@@ -102,7 +104,8 @@ export function buildFoodActions(): FoodAction[] {
       category: day === 'Saturday' ? 'SCHEDULED' : 'CORE',
       sortOrder: 50,
       isTrainingDayOnly: true,
-      notes: 'Default simple pre-workout option',
+      notes:
+        'Eat a whole banana ~30–60 min before training — not a shake. Simple carbs for the workout.',
     })
   }
 
@@ -129,16 +132,17 @@ export function buildFoodActions(): FoodAction[] {
     })
   }
 
-  // Whey if needed — training days
+  // Whey if needed — training days (optional shake — not daily requirement)
   for (const day of trainingDays) {
     actions.push({
       id: id('food'),
-      name: 'Whey (if needed for protein)',
+      name: 'Whey shake (only if protein is short)',
       dayOfWeek: day,
       timeWindow: 'Supplements',
       category: 'OPTIONAL',
       sortOrder: 61,
-      notes: 'Convenience tool — not mandatory after every workout',
+      notes:
+        'Optional shake — not required every day. Use when meals leave you short on protein. After workout or with a meal is fine; timing is flexible.',
     })
   }
 

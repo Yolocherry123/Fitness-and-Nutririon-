@@ -1,6 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { db, uid } from '../db'
 import { deleteRecipe, saveRecipe } from '../hooks/useProgram'
 import type { Recipe } from '../models/types'
@@ -24,15 +23,15 @@ export function RecipesScreen() {
   return (
     <div className="page">
       <div className="row-between">
-        <Link to="/" className="btn btn-ghost">
-          ← Today
-        </Link>
+        <span className="muted small">Quick open while cooking</span>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           Add recipe
         </button>
       </div>
       <h1>Recipes</h1>
-      <p className="muted small">Add, edit, or remove tools — optional stacks stay optional.</p>
+      <p className="muted small">
+        Anabolic bowl, shakes, and your custom recipes — also in the bottom nav.
+      </p>
 
       {recipes.length === 0 && (
         <p className="empty">No recipes yet. Add your first one.</p>

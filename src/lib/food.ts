@@ -63,7 +63,7 @@ export const WINDOW_LABELS: Record<string, string> = {
   Morning: 'Morning',
   Breakfast: 'Breakfast',
   Lunch: 'Lunch',
-  Afternoon: 'Afternoon / Pre-workout',
+  Afternoon: 'Before workout (afternoon)',
   Supplements: 'Supplements',
   Dinner: 'Dinner',
   Night: 'Night food',

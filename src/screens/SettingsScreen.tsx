@@ -146,6 +146,69 @@ export function SettingsScreen() {
             if (Number.isFinite(n) && n > 0) patch({ proteinTargetMax: n })
           }}
         />
+        <Field
+          label="Carb min (g)"
+          value={profile.carbTargetMin ?? 320}
+          onSave={(v) => {
+            const n = Number(v)
+            if (Number.isFinite(n) && n > 0) patch({ carbTargetMin: n })
+          }}
+        />
+        <Field
+          label="Carb max (g)"
+          value={profile.carbTargetMax ?? 400}
+          onSave={(v) => {
+            const n = Number(v)
+            if (Number.isFinite(n) && n > 0) patch({ carbTargetMax: n })
+          }}
+        />
+      </div>
+
+      <div className="section-label">Product labels (protein tools)</div>
+      <div className="card stack">
+        <p className="small muted" style={{ margin: 0 }}>
+          Used for estimated shake math. Edit to match your tub / milk powder label.
+        </p>
+        <Field
+          label="Whey protein per serving (g)"
+          value={settings?.wheyProteinPerServingG ?? 24}
+          onSave={async (v) => {
+            if (!settings) return
+            const n = Number(v)
+            if (!Number.isFinite(n) || n <= 0) return
+            await db.settings.put({ ...settings, wheyProteinPerServingG: n })
+          }}
+        />
+        <Field
+          label="Whey calories per serving"
+          value={settings?.wheyCaloriesPerServing ?? 120}
+          onSave={async (v) => {
+            if (!settings) return
+            const n = Number(v)
+            if (!Number.isFinite(n) || n < 0) return
+            await db.settings.put({ ...settings, wheyCaloriesPerServing: n })
+          }}
+        />
+        <Field
+          label="Milk glass protein (g)"
+          value={settings?.milkProteinPerGlassG ?? 8}
+          onSave={async (v) => {
+            if (!settings) return
+            const n = Number(v)
+            if (!Number.isFinite(n) || n < 0) return
+            await db.settings.put({ ...settings, milkProteinPerGlassG: n })
+          }}
+        />
+        <Field
+          label="Milk-powder drink protein / serving (g)"
+          value={settings?.milkPowderProteinPerServingG ?? 8}
+          onSave={async (v) => {
+            if (!settings) return
+            const n = Number(v)
+            if (!Number.isFinite(n) || n < 0) return
+            await db.settings.put({ ...settings, milkPowderProteinPerServingG: n })
+          }}
+        />
       </div>
 
       <div className="section-label">Modes & supplements</div>

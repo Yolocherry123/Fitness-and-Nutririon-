@@ -1,0 +1,648 @@
+SMART PROTEIN & SHAKE RECOMMENDATION SYSTEM
+SPECIFICATION FOR PERSONAL FITNESS APP
+
+PURPOSE
+====================================================
+
+The app must determine whether a whey/protein shake is actually useful based on foods checked off as consumed during the day.
+
+The shake is NOT a compulsory daily item.
+
+CORE PRINCIPLE:
+
+The app estimates:
+1. Protein already consumed
+2. Protein likely from remaining planned meals
+3. Expected total protein for the day
+4. Estimated protein gap
+
+Then it decides whether:
+- No shake is needed
+- A shake is optional
+- Additional food protein should be prioritized
+- A whey shake is a convenient recommendation
+
+The app should answer:
+
+"Based on what I have eaten and what I still plan to eat, do I need a shake today?"
+
+====================================================
+USER PROTEIN TARGET
+====================================================
+
+Primary daily protein target: 115 g
+
+Preferred target range: 110–125 g protein/day
+
+These values must be editable in Settings and must not be permanently hard-coded.
+
+====================================================
+IMPORTANT: ESTIMATES ARE NOT EXACT
+====================================================
+
+Hostel food portions and recipes vary.
+
+The app must label calculations as:
+"Estimated protein"
+
+It must support:
+
+1. EXACT LOGGING
+   When nutrition information and quantity are known.
+
+2. APPROXIMATE LOGGING
+   When the user selects food and a rough portion.
+
+3. CHECKLIST-ONLY LOGGING
+   When a meal is simply marked consumed without reliable macro data.
+
+Never present unknown hostel meal nutrition as exact.
+
+====================================================
+FOOD CHECK-OFF SYSTEM
+====================================================
+
+When a food is checked off, add estimated protein when sufficient information exists.
+
+Example: Anabolic Bowl
+
+Calculate from the actual recipe/configuration selected.
+
+Typical components may include:
+- oats
+- milk OR prepared milk-powder drink
+- peanut butter
+- optional additions
+
+Milk powder should preferably use the nutrition information from the user's specific product label because brands vary.
+
+====================================================
+HOSTEL BREAKFAST LOGGING
+====================================================
+
+Do not rely only on a generic checkbox called "Hostel Breakfast".
+
+Allow the user to:
+
+1. Mark breakfast consumed
+2. Select major protein sources actually eaten
+
+Example:
+
+[x] Hostel breakfast
+[x] 2 eggs
+[x] Milk
+
+The app estimates protein from known protein sources.
+
+====================================================
+HOSTEL LUNCH AND DINNER QUICK SELECTOR
+====================================================
+
+Provide quick selection for major protein sources:
+
+[ ] Dal
+[ ] Rajma
+[ ] Chana
+[ ] Paneer
+[ ] Soy
+[ ] Eggs
+[ ] Chicken
+[ ] Curd/Yogurt
+[ ] Other protein source
+
+Allow simple portions:
+
+- Small
+- Normal
+- Large
+
+The user should not need to weigh hostel food every day.
+
+====================================================
+APPROXIMATE PROTEIN DATABASE
+====================================================
+
+Use configurable approximate values.
+
+Examples:
+
+DAL
+Small: ~5 g
+Normal: ~8 g
+Large: ~12 g
+
+EGGS
+1 egg: ~6 g
+2 eggs: ~12 g
+3 eggs: ~18 g
+
+CURD/YOGURT
+Small: ~4 g
+Normal: ~7 g
+Large: ~10 g
+
+WHEY
+Use the actual configured product nutrition label.
+A typical serving may provide ~20–25 g protein.
+
+CHICKEN
+Distinguish between:
+- raw weight
+- cooked edible meat
+- bone-in serving
+
+Bone-in weight must NOT automatically be treated as the same amount of edible meat.
+
+====================================================
+LIVE PROTEIN TRACKER
+====================================================
+
+The Today screen should show:
+
+PROTEIN TODAY
+
+82 g consumed
+Target: 115 g
+
+Estimated remaining planned protein:
++30 g
+
+EXPECTED DAILY TOTAL:
+112 g
+
+STATUS:
+ON TRACK
+
+Update automatically when food is:
+- checked off
+- edited
+- removed
+- changed in portion size
+
+====================================================
+CURRENT VS EXPECTED PROTEIN
+====================================================
+
+Calculate:
+
+1. CURRENT PROTEIN
+
+CURRENT PROTEIN =
+Sum of estimated protein from foods confirmed as CONSUMED
+
+2. EXPECTED REMAINING PROTEIN
+
+Protein likely from remaining scheduled foods with reasonable confidence.
+
+Examples:
+- remaining meals
+- scheduled chicken/kebab
+- known planned protein foods
+
+Expected food must NOT be presented as already consumed.
+
+3. EXPECTED DAILY PROTEIN
+
+EXPECTED DAILY PROTEIN =
+CURRENT PROTEIN + EXPECTED REMAINING PROTEIN
+
+4. PROTEIN GAP
+
+PROTEIN GAP =
+PRIMARY PROTEIN TARGET - EXPECTED DAILY PROTEIN
+
+====================================================
+TIME-AWARE SHAKE LOGIC
+====================================================
+
+Recommendations must depend on time of day.
+
+MORNING:
+Do not recommend whey merely because current protein is low.
+
+Example:
+"It's early in the day. Focus on your planned meals first."
+
+AFTERNOON:
+Estimate likely daily total.
+
+Example:
+"Based on what you have eaten and today's remaining meals, prioritize protein later today."
+
+EVENING:
+A stronger recommendation is appropriate when few meal opportunities remain.
+
+Example:
+"You are estimated to finish below your protein target. A convenient protein addition may be useful tonight."
+
+====================================================
+SMART SHAKE DECISION ENGINE
+====================================================
+
+Do NOT use:
+
+"Workout today = automatically drink a shake."
+
+Evaluate:
+
+A. Current estimated protein
+B. Remaining planned meals
+C. Scheduled protein additions
+D. Expected daily protein
+E. Current time
+F. Protein target
+G. Convenience and user preference
+
+====================================================
+RECOMMENDATION LEVELS
+====================================================
+
+GREEN — ON TRACK
+
+Expected daily protein: 110–125 g or above minimum target.
+
+Message:
+"You're likely on track to meet your protein goal. A whey shake is probably unnecessary for protein today."
+
+A shake may still be used for calories or convenience.
+
+----------------------------------------------------
+
+YELLOW — CLOSE
+
+Expected daily protein: ~95–110 g
+
+Message:
+"You're reasonably close to your protein target. Check your remaining meals before deciding whether to add whey."
+
+Actions:
+- Add food protein
+- Add whey
+- Wait and reassess
+
+----------------------------------------------------
+
+ORANGE — LIKELY SHORT
+
+Expected daily protein: ~80–95 g
+
+Message:
+"You're likely to finish below your protein target. Prioritize an additional protein source."
+
+Options:
+- Whey
+- Chicken
+- Eggs
+- Paneer
+- Curd/Yogurt
+- Milk or milk-powder drink when useful
+
+----------------------------------------------------
+
+RED — SIGNIFICANTLY SHORT LATE IN THE DAY
+
+Expected daily protein: below ~80 g AND few meals remain.
+
+Message:
+"Your protein intake appears significantly below your target today. Prioritize a convenient protein source."
+
+Do NOT encourage extreme compensatory eating or multiple shakes automatically.
+
+====================================================
+FOOD-FIRST LOGIC
+====================================================
+
+When normal meals remain, prioritize food awareness before automatically recommending whey.
+
+Priority:
+
+1. Check remaining planned meals.
+2. Check scheduled chicken/kebab.
+3. Check available food protein.
+4. Recommend whey if food is insufficient or inconvenient.
+
+Example:
+
+Current protein: 85 g
+Remaining target: ~30 g
+Dinner remains.
+
+Recommendation:
+"Check the protein available at dinner before adding a shake."
+
+====================================================
+EXAMPLE SCENARIO 1 — SHAKE NOT NEEDED
+====================================================
+
+Current consumed protein: 90 g
+Remaining scheduled chicken: ~30 g
+Expected dinner protein: ~10 g
+
+Expected total: ~130 g
+
+Recommendation:
+GREEN
+
+"You're likely to reach your protein target today. A shake is unnecessary for protein purposes."
+
+====================================================
+EXAMPLE SCENARIO 2 — SHAKE USEFUL
+====================================================
+
+Current consumed protein: 75 g
+Expected remaining dinner protein: ~15 g
+
+Expected total: ~90 g
+Protein gap: ~25 g
+
+Recommendation:
+ORANGE
+
+"You're likely to finish below your protein target. A convenient protein addition would be useful."
+
+Actions:
+[Add Whey Shake]
+[Add Food Protein]
+
+====================================================
+EXAMPLE SCENARIO 3 — WAIT FOR DINNER
+====================================================
+
+Current consumed protein: 85 g
+Dinner remains.
+Dinner protein is unknown.
+
+Recommendation:
+YELLOW
+
+"You're currently below your target, but dinner is still remaining. Check what protein is available before deciding on whey."
+
+====================================================
+EXAMPLE SCENARIO 4 — MORNING
+====================================================
+
+Current protein: 20 g
+Time: 9:00 AM
+
+Do NOT say:
+"You're short by 95 g. Drink multiple shakes."
+
+Instead:
+"It's early in the day. Continue with your planned meals and track the main protein sources."
+
+====================================================
+OPTIONAL SHAKE LOGGING
+====================================================
+
+When the user chooses ADD PROTEIN SHAKE, offer:
+
+[ ] Whey + Water
+[ ] Whey + Milk
+[ ] Whey + Milk-Powder Drink
+[ ] Whey + Banana
+[ ] Custom Shake
+
+Calculate protein and calories from selected ingredients and configured product information.
+
+After logging, update:
+- Current protein
+- Calories when available
+- Expected daily protein
+- Protein gap
+- Recommendation status
+
+====================================================
+SHAKE AS A CALORIE TOOL
+====================================================
+
+Protein and calorie recommendations must remain separate.
+
+The app may conclude:
+
+"Protein target is likely met."
+
+while also saying:
+
+"Additional calories may still be useful."
+
+A shake can be used as:
+1. Protein tool
+2. Calorie tool
+3. Convenience tool
+
+The UI must explain WHY it is suggested.
+
+Examples:
+"Suggested because protein is likely low."
+
+or
+
+"Protein is sufficient, but this shake could help increase calories."
+
+====================================================
+CORE PSEUDOCODE
+====================================================
+
+CURRENT_PROTEIN =
+sum(protein from foods marked CONSUMED)
+
+EXPECTED_REMAINING_PROTEIN =
+sum(protein from remaining scheduled foods with reasonable confidence)
+
+EXPECTED_DAILY_PROTEIN =
+CURRENT_PROTEIN + EXPECTED_REMAINING_PROTEIN
+
+PROTEIN_GAP =
+PROTEIN_TARGET - EXPECTED_DAILY_PROTEIN
+
+IF early in day:
+    Focus on planned meals first.
+
+ELSE IF EXPECTED_DAILY_PROTEIN >= minimum_target:
+    ON_TRACK
+    Shake not needed for protein.
+
+ELSE IF PROTEIN_GAP <= ~10 g:
+    CLOSE
+    Shake optional.
+
+ELSE:
+    ADD_PROTEIN_SOURCE
+
+    If normal food is available:
+        show food options.
+
+    If food is unavailable or inconvenient:
+        recommend whey as a convenient option.
+
+====================================================
+IMPORTANT SAFEGUARDS
+====================================================
+
+1. Never recommend whey automatically just because it is a workout day.
+
+2. Never recommend multiple shakes merely because current protein is low early in the day.
+
+3. Do not treat expected protein as consumed protein.
+
+4. Clearly distinguish:
+   - CONSUMED
+   - EXPECTED
+   - TARGET
+
+5. Hostel estimates must be labeled approximate.
+
+6. Allow the user to override portions.
+
+7. Allow nutrition values to be edited.
+
+8. Use actual product labels for whey and milk powder when configured.
+
+9. Do not punish skipped whey in completion scoring.
+
+10. Whey remains OPTIONAL unless the user customizes the plan.
+
+====================================================
+TODAY SCREEN UI
+====================================================
+
+Add:
+
+PROTEIN STATUS
+
+Example:
+
+Protein Today
+
+82 g consumed
+
+Target:
+115 g
+
+Expected from remaining planned food:
++30 g
+
+Expected total:
+112 g
+
+Status:
+ON TRACK
+
+[View Details]
+
+If likely short:
+
+Protein Today
+
+75 g consumed
+
+Expected remaining:
++15 g
+
+Expected total:
+90 g
+
+Status:
+LIKELY SHORT
+
+"You may need approximately 20–25 g more protein today."
+
+Actions:
+[Add Whey Shake]
+[Add Food Protein]
+
+====================================================
+PROTEIN DETAILS SCREEN
+====================================================
+
+Show:
+
+CONSUMED PROTEIN
+- Anabolic Bowl: estimated XX g
+- Breakfast eggs: estimated XX g
+- Lunch dal: estimated XX g
+- Chicken: estimated XX g
+
+EXPECTED REMAINING PROTEIN
+- Remaining scheduled foods: estimated XX g
+
+TARGET
+- Primary target: 115 g
+- Preferred range: 110–125 g
+
+STATUS
+- On Track
+- Close
+- Likely Short
+
+====================================================
+DATA MODEL REQUIREMENTS
+====================================================
+
+FoodItem:
+- id
+- name
+- category
+- protein_per_serving
+- calories_per_serving when available
+- serving_definition
+- estimation_type
+- user_editable
+
+FoodLog:
+- id
+- date
+- food_item_id
+- quantity_or_portion
+- status: PLANNED / CONSUMED / SKIPPED
+- estimated_protein
+- estimated_calories
+- source: DEFAULT / USER_CUSTOM / PRODUCT_LABEL / APPROXIMATION
+
+ProteinSummary:
+- date
+- consumed_protein
+- expected_remaining_protein
+- expected_daily_protein
+- target_protein
+- minimum_target
+- protein_gap
+- recommendation_status
+
+====================================================
+RECOMMENDATION PRIORITY
+====================================================
+
+Avoid overwhelming the user.
+
+Show:
+
+PRIMARY ACTION
+Example:
+"Check dinner protein before deciding on whey."
+
+SECONDARY ACTION
+Example:
+"If dinner is low in protein, add a convenient protein source."
+
+OPTIONAL ALTERNATIVES:
+- Whey
+- Chicken
+- Eggs
+- Paneer
+- Curd
+
+====================================================
+FINAL PRODUCT PRINCIPLE
+====================================================
+
+The app should NOT ask:
+
+"Did you drink your shake today?"
+
+Instead, it should answer:
+
+"Based on what you have consumed and what you are still likely to eat, is a shake useful today?"
+
+The purpose is to make whey a smart nutrition tool rather than a compulsory daily checkbox.

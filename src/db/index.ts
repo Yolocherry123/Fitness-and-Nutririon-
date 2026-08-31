@@ -88,6 +88,30 @@ async function refreshFoodAndRecipes(): Promise<void> {
   if ((await db.recipes.count()) === 0) {
     await db.recipes.bulkPut(RECIPES)
   }
+  await polishFoodActionCopy()
+}
+
+/** Update wording on known items without wiping user-added foods. */
+async function polishFoodActionCopy(): Promise<void> {
+  const all = await db.foodActions.toArray()
+  for (const a of all) {
+    if (/^Pre-workout banana$/i.test(a.name)) {
+      await db.foodActions.put({
+        ...a,
+        notes:
+          'Eat a whole banana ~30–60 min before training — not a shake. Simple carbs for the workout.',
+      })
+      continue
+    }
+    if (/^Whey \(if needed/i.test(a.name) || /^Whey shake/i.test(a.name)) {
+      await db.foodActions.put({
+        ...a,
+        name: 'Whey shake (only if protein is short)',
+        notes:
+          'Optional shake — not required every day. Use when meals leave you short on protein. After workout or with a meal is fine; timing is flexible.',
+      })
+    }
+  }
 }
 
 async function ensureProgramTables(): Promise<void> {
@@ -218,6 +242,8 @@ export async function ensureSeeded(): Promise<void> {
 
   if ((await db.foodActions.count()) === 0) {
     await refreshFoodAndRecipes()
+  } else {
+    await polishFoodActionCopy()
   }
 
   if ((await db.planVersions.count()) === 0) {

@@ -907,3 +907,41 @@ h3 {
   color: var(--text-muted);
   margin-top: 4px;
 }
+
+/* Protein status card */
+.protein-card.tone-green {
+  border-color: rgba(124, 184, 154, 0.45);
+}
+.protein-card.tone-yellow {
+  border-color: rgba(212, 165, 116, 0.5);
+}
+.protein-card.tone-orange {
+  border-color: rgba(224, 150, 90, 0.55);
+}
+.protein-card.tone-red {
+  border-color: rgba(224, 122, 106, 0.55);
+}
+.protein-card.tone-info {
+  border-color: rgba(122, 168, 196, 0.45);
+}
+.chip.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.macro-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+.macro-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 2px;
+}
+.macro-line {
+  font-size: 0.95rem;
+  line-height: 1.25;
+}

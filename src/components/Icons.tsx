@@ -65,6 +65,27 @@ export function IconGear({ size = 20, className }: IconProps) {
   )
 }
 
+export function IconBook({ size = 20, className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 5a2 2 0 0 1 2-2h11v18H6a2 2 0 0 0-2 2V5z" />
+      <path d="M17 3v18" />
+      <path d="M8 7h5M8 11h5" />
+    </svg>
+  )
+}
+
 export function IconChart({ size = 40, className }: IconProps) {
   return (
     <svg

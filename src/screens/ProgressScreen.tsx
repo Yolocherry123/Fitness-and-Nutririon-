@@ -81,6 +81,9 @@ export function ProgressScreen() {
     <div className="page">
       <h1>Progress</h1>
       <p className="muted small">Trends over days — not single weigh-ins.</p>
+      <Link to="/review" className="btn btn-secondary btn-block" style={{ marginBottom: 8 }}>
+        Weekly review
+      </Link>
 
       <div className="section-label">Bodyweight</div>
       <div className="row" style={{ gap: 8 }}>

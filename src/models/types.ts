@@ -60,6 +60,9 @@ export interface UserProfile {
   calorieTargetMax: number
   proteinTargetMin: number
   proteinTargetMax: number
+  /** Soft carb range — editable; defaults derived if missing */
+  carbTargetMin?: number
+  carbTargetMax?: number
   waterGoalMl: number
   digestionMode: boolean
   onboardingComplete: boolean
@@ -89,6 +92,8 @@ export interface FoodAction {
   isRestDayOnly?: boolean
   allowsMilkPowderSub?: boolean
   chickenMeasure?: ChickenMeasureType
+  /** Default estimated protein when checklist-only (grams) */
+  estimatedProteinG?: number
 }
 
 export interface DailyCompletion {
@@ -99,11 +104,41 @@ export interface DailyCompletion {
   logMode: NutritionLogMode
   exactCalories?: number
   exactProtein?: number
+  /** Estimated protein grams (approx / checklist defaults) */
+  estimatedProtein?: number
+  estimatedCalories?: number
+  /** Breakdown lines for protein details UI */
+  proteinBreakdown?: ProteinBreakdownLine[]
+  /** Estimated carbs grams */
+  estimatedCarbs?: number
   notes?: string
   chickenMeasure?: ChickenMeasureType
   actualQuantity?: string
   updatedAt: string
 }
+
+export interface ProteinBreakdownLine {
+  label: string
+  grams: number
+  portion?: string
+  source?: 'DEFAULT' | 'USER_CUSTOM' | 'PRODUCT_LABEL' | 'APPROXIMATION'
+}
+
+export type ProteinPortion = 'small' | 'normal' | 'large'
+
+export type ShakeStyle =
+  | 'whey_water'
+  | 'whey_milk'
+  | 'whey_milk_powder'
+  | 'whey_banana'
+  | 'custom'
+
+export type ProteinRecoStatus =
+  | 'ON_TRACK'
+  | 'CLOSE'
+  | 'LIKELY_SHORT'
+  | 'SIGNIFICANTLY_SHORT'
+  | 'EARLY_DAY'
 
 export interface Exercise {
   id: string
@@ -264,9 +299,14 @@ export interface AppSettings {
   /** Bump when seed content must be refreshed for existing installs */
   seedRevision?: number
   startingWeightKg?: number
+  /** Product label — editable */
+  wheyProteinPerServingG?: number
+  wheyCaloriesPerServing?: number
+  milkPowderProteinPerServingG?: number
+  milkProteinPerGlassG?: number
 }
 
-export const CURRENT_SEED_REVISION = 2
+export const CURRENT_SEED_REVISION = 3
 
 export interface WaistEntry {
   id: string

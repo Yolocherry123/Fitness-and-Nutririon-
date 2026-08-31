@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CategoryBadge } from '../components/Badges'
 import { HeaderIconButton, useHeaderHints } from '../components/HeaderActions'
-import { IconCheckIn, IconGear, IconScale } from '../components/Icons'
+import { IconBook, IconCheckIn, IconGear, IconScale } from '../components/Icons'
+import { MealProteinModal } from '../components/MealProteinModal'
+import { ShakeLogModal } from '../components/ShakeLogModal'
 import { db, uid } from '../db'
 import {
   creatineMissMessage,
@@ -12,6 +14,11 @@ import {
   scoreCompletions,
   suggestCalorieGapTool,
 } from '../engines/logic'
+import {
+  buildProteinSummary,
+  statusLabel,
+  statusTone,
+} from '../engines/protein'
 import { useWorkoutDays } from '../hooks/useProgram'
 import {
   formatDisplayDate,
@@ -20,6 +27,7 @@ import {
   dayOfWeekFromDate,
 } from '../lib/dates'
 import { foodActionsForDate, groupByTimeWindow, WINDOW_LABELS } from '../lib/food'
+import { chickenProteinEstimate, defaultCarbsForActionName, defaultProteinForActionName } from '../lib/proteinDb'
 import type { ActionCategory, ChickenMeasureType, DigestionStatus, FoodAction } from '../models/types'
 
 const MEASURE_OPTIONS: { value: ChickenMeasureType; label: string }[] = [
@@ -30,6 +38,11 @@ const MEASURE_OPTIONS: { value: ChickenMeasureType; label: string }[] = [
 ]
 
 const TIP_KEY = 'forge-tip-dismissed-v1'
+const SHAKE_ACTION_ID = 'shake-extra'
+
+function needsMealProteinPicker(action: FoodAction): boolean {
+  return /hostel breakfast|hostel lunch|hostel dinner/i.test(action.name)
+}
 
 function catClass(category: ActionCategory): string {
   if (category === 'CORE') return 'cat-core'
@@ -55,6 +68,7 @@ export function TodayScreen() {
   }, [])
 
   const profile = useLiveQuery(() => db.profile.get('user'))
+  const settings = useLiveQuery(() => db.settings.get('settings'))
   const allFood = useLiveQuery(() => db.foodActions.toArray()) ?? []
   const completions =
     useLiveQuery(() => db.completions.where('date').equals(date).toArray(), [date]) ?? []
@@ -75,6 +89,11 @@ export function TodayScreen() {
   const [chickenTarget, setChickenTarget] = useState<FoodAction | null>(null)
   const [chickenMeasure, setChickenMeasure] = useState<ChickenMeasureType>('BONE_IN')
   const [chickenQty, setChickenQty] = useState('')
+  const [mealTarget, setMealTarget] = useState<FoodAction | null>(null)
+  const [shakeOpen, setShakeOpen] = useState<'protein' | 'calories' | 'convenience' | null>(
+    null,
+  )
+  const [proteinDetails, setProteinDetails] = useState(false)
   const [creatineNote, setCreatineNote] = useState<string | null>(null)
   const [checkInOpen, setCheckInOpen] = useState(false)
   const [tipOpen, setTipOpen] = useState(() => {
@@ -84,7 +103,6 @@ export function TodayScreen() {
       return true
     }
   })
-  const [expandDone, setExpandDone] = useState(false)
   const [showHints, dismissHints] = useHeaderHints()
   const [pulseId, setPulseId] = useState<string | null>(null)
 
@@ -104,16 +122,15 @@ export function TodayScreen() {
   const optionalExtras = actions.filter(
     (a) => a.category === 'OPTIONAL' && a.timeWindow !== 'Night',
   )
-  const visible = showOptionalExtras
+  // Keep checked items in place so a mistaken tap can be unticked immediately
+  const listItems = showOptionalExtras
     ? [...primaryActions, ...nightOptionals, ...optionalExtras]
     : [...primaryActions, ...nightOptionals]
   const scores = scoreCompletions(actions, completions)
   const doneMap = new Map(completions.map((c) => [c.foodActionId, c]))
 
-  // Day clear / sticky next ignore OPTIONAL (including night)
   const remaining = primaryActions.filter((a) => !doneMap.get(a.id)?.completed)
-  const completedItems = visible.filter((a) => doneMap.get(a.id)?.completed)
-  const remainingGroups = groupByTimeWindow(remaining)
+  const foodGroups = groupByTimeWindow(listItems)
   const nextItem = remaining[0]
   const nextWindow = nextItem
     ? WINDOW_LABELS[nextItem.timeWindow] ?? nextItem.timeWindow
@@ -130,10 +147,21 @@ export function TodayScreen() {
     .filter((a) => isChickenOrKebabAction(a) && a.category === 'SCHEDULED')
     .every((a) => doneMap.get(a.id)?.completed)
 
-  // Only when something important is still open — not general core %
   const showGapCard =
     (!creatineDone && !!profile?.usesCreatine) ||
     (hasScheduledChicken && !chickenDone)
+
+  const protein = useMemo(
+    () =>
+      buildProteinSummary({
+        actions,
+        completions,
+        profile,
+        settings,
+        caloriesMayHelp: showGapCard && scores.consistencyPct >= 70,
+      }),
+    [actions, completions, profile, settings, showGapCard, scores.consistencyPct],
+  )
 
   async function writeCompletion(
     action: FoodAction,
@@ -142,19 +170,35 @@ export function TodayScreen() {
   ) {
     const existing = doneMap.get(action.id)
     const now = new Date().toISOString()
+    const estimatedProtein = completed
+      ? (extra.estimatedProtein ??
+        extra.exactProtein ??
+        action.estimatedProteinG ??
+        defaultProteinForActionName(action.name))
+      : undefined
+    const estimatedCarbs = completed
+      ? (extra.estimatedCarbs ?? defaultCarbsForActionName(action.name))
+      : undefined
     await db.completions.put({
       id: existing?.id ?? `${date}:${action.id}`,
       date,
       foodActionId: action.id,
       completed,
       logMode: extra.logMode ?? existing?.logMode ?? 'CHECKLIST',
-      notes: existing?.notes,
-      chickenMeasure: existing?.chickenMeasure,
-      actualQuantity: existing?.actualQuantity,
-      exactCalories: existing?.exactCalories,
-      exactProtein: existing?.exactProtein,
+      notes: extra.notes ?? existing?.notes,
+      chickenMeasure: extra.chickenMeasure ?? existing?.chickenMeasure,
+      actualQuantity: extra.actualQuantity ?? existing?.actualQuantity,
+      exactCalories: extra.exactCalories ?? existing?.exactCalories,
+      exactProtein: extra.exactProtein ?? existing?.exactProtein,
+      estimatedProtein,
+      estimatedCarbs,
+      estimatedCalories: completed
+        ? (extra.estimatedCalories ?? existing?.estimatedCalories)
+        : undefined,
+      proteinBreakdown: completed
+        ? (extra.proteinBreakdown ?? existing?.proteinBreakdown)
+        : undefined,
       updatedAt: now,
-      ...extra,
     })
   }
 
@@ -169,6 +213,11 @@ export function TodayScreen() {
           (/kebab/i.test(action.name) ? 'COOKED_EDIBLE' : 'BONE_IN'),
       )
       setChickenQty(existing?.actualQuantity ?? action.quantity ?? '')
+      return
+    }
+
+    if (!currentlyDone && needsMealProteinPicker(action)) {
+      setMealTarget(action)
       return
     }
 
@@ -190,11 +239,21 @@ export function TodayScreen() {
 
   async function saveChicken() {
     if (!chickenTarget) return
+    const proteinG = chickenProteinEstimate(chickenMeasure, chickenQty || undefined)
     await writeCompletion(chickenTarget, true, {
       chickenMeasure,
       actualQuantity: chickenQty || undefined,
       logMode: 'APPROXIMATE',
-      notes: `Logged as ${chickenMeasure.replace('_', ' ').toLowerCase()}`,
+      estimatedProtein: proteinG,
+      estimatedCarbs: 0,
+      proteinBreakdown: [
+        {
+          label: `${chickenMeasure.replace(/_/g, ' ').toLowerCase()} chicken`,
+          grams: proteinG,
+          source: 'APPROXIMATION',
+        },
+      ],
+      notes: `Logged as ${chickenMeasure.replace('_', ' ').toLowerCase()} · ~${proteinG} g protein (est.)`,
     })
     setChickenTarget(null)
     setPulseId(chickenTarget.id)
@@ -265,6 +324,13 @@ export function TodayScreen() {
             }}
           >
             <IconCheckIn />
+          </HeaderIconButton>
+          <HeaderIconButton
+            label="Recipes"
+            to="/recipes"
+            onHintSeen={dismissHints}
+          >
+            <IconBook />
           </HeaderIconButton>
           <HeaderIconButton
             label="Settings"
@@ -373,11 +439,91 @@ export function TodayScreen() {
         <span className="chip">{remaining.length} left</span>
       </div>
 
+      <div className={`card protein-card tone-${statusTone(protein.status)}`} style={{ marginTop: 12, padding: '12px 14px' }}>
+        <div className="row-between" style={{ marginBottom: 8 }}>
+          <strong>Macros</strong>
+          <span className="chip">{statusLabel(protein.status)}</span>
+        </div>
+        <div className="macro-grid">
+          <div>
+            <div className="macro-label">Protein</div>
+            <div className="macro-line">
+              <strong>{protein.consumedProtein}</strong>
+              <span className="muted"> +{protein.expectedRemainingProtein}</span>
+              <span className="muted"> → {protein.expectedDailyProtein}</span>
+              <span className="faint"> / {protein.targetProtein}g</span>
+            </div>
+          </div>
+          <div>
+            <div className="macro-label">Carbs</div>
+            <div className="macro-line">
+              <strong>{protein.consumedCarbs}</strong>
+              <span className="muted"> +{protein.expectedRemainingCarbs}</span>
+              <span className="muted"> → {protein.expectedDailyCarbs}</span>
+              <span className="faint"> / {protein.carbTarget}g</span>
+            </div>
+          </div>
+        </div>
+        <p className="small muted" style={{ margin: '8px 0 0' }}>
+          {protein.primaryMessage}
+        </p>
+        <div className="row" style={{ gap: 8, marginTop: 8 }}>
+          {(protein.suggestShakeForProtein || protein.suggestShakeForCalories) &&
+            profile?.usesWhey && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1, padding: '8px 10px' }}
+                onClick={() =>
+                  setShakeOpen(
+                    protein.suggestShakeForProtein ? 'protein' : 'calories',
+                  )
+                }
+              >
+                Add shake
+              </button>
+            )}
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ flex: 1, padding: '8px 10px' }}
+            onClick={() => setProteinDetails((v) => !v)}
+          >
+            {proteinDetails ? 'Hide' : 'Details'}
+          </button>
+        </div>
+        {proteinDetails && (
+          <div style={{ marginTop: 10 }}>
+            <p className="faint small" style={{ marginTop: 0 }}>
+              Estimates — hostel portions vary. P {protein.minimumTarget}–{protein.maximumTarget}g · C {protein.carbMinimum}–{protein.carbMaximum}g
+            </p>
+            {protein.secondaryMessage && (
+              <p className="small muted">{protein.secondaryMessage}</p>
+            )}
+            <div className="section-label">Consumed protein (est.)</div>
+            {protein.consumedLines.length === 0 && (
+              <p className="small muted">Nothing logged yet.</p>
+            )}
+            {protein.consumedLines.map((l) => (
+              <div key={l.foodActionId} className="small muted" style={{ marginBottom: 4 }}>
+                {l.name}: ~{l.grams} g
+              </div>
+            ))}
+            <div className="section-label">Expected remaining</div>
+            {protein.expectedLines.map((l) => (
+              <div key={l.foodActionId} className="small muted" style={{ marginBottom: 4 }}>
+                {l.name}: ~{l.grams} g protein
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="section-label" style={{ marginTop: 4 }}>
         Today&apos;s food
       </div>
 
-      {remainingGroups.map((g) => (
+      {foodGroups.map((g) => (
         <div key={g.window}>
           <div className="small faint" style={{ margin: '10px 0 6px' }}>
             {WINDOW_LABELS[g.window] ?? g.window}
@@ -387,7 +533,7 @@ export function TodayScreen() {
               <FoodRow
                 key={a.id}
                 action={a}
-                done={false}
+                done={doneMap.get(a.id)?.completed === true}
                 pulsing={pulseId === a.id}
                 detail={doneMap.get(a.id)}
                 milkPowder={
@@ -400,34 +546,6 @@ export function TodayScreen() {
         </div>
       ))}
 
-      {completedItems.length > 0 && (
-        <details
-          className="collapsed-group"
-          open={expandDone}
-          onToggle={(e) => setExpandDone((e.target as HTMLDetailsElement).open)}
-        >
-          <summary>
-            {expandDone ? 'Hide' : 'Show'} {completedItems.length} completed
-          </summary>
-          <div className="stack" style={{ marginTop: 8 }}>
-            {completedItems.map((a) => (
-              <FoodRow
-                key={a.id}
-                action={a}
-                done
-                collapsed={!expandDone}
-                pulsing={pulseId === a.id}
-                detail={doneMap.get(a.id)}
-                milkPowder={
-                  !!a.allowsMilkPowderSub && !!profile?.milkPowderSubstitute
-                }
-                onToggle={() => toggle(a)}
-              />
-            ))}
-          </div>
-        </details>
-      )}
-
       <button
         className="btn btn-ghost btn-block"
         style={{ marginTop: 8 }}
@@ -435,7 +553,7 @@ export function TodayScreen() {
       >
         {showOptionalExtras
           ? 'Hide optional tools'
-          : `Optional tools (${optionalExtras.length})`}
+          : `Optional tools (${optionalExtras.length}) — whey, snacks, etc.`}
       </button>
 
       <div className="card" style={{ marginTop: 14 }}>
@@ -497,7 +615,8 @@ export function TodayScreen() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2>Log chicken / kebab</h2>
             <p className="muted small">
-              Bone-in weight is not the same as edible meat weight.
+              Bone-in weight is not the same as edible meat weight. Protein stays
+              approximate.
             </p>
             <div className="field">
               <label>Measurement type</label>
@@ -524,11 +643,71 @@ export function TodayScreen() {
                 placeholder="e.g. 320 g"
               />
             </div>
+            <p className="small muted">
+              Est. protein ≈{' '}
+              {chickenProteinEstimate(chickenMeasure, chickenQty || undefined)} g
+            </p>
             <button className="btn btn-primary btn-block" onClick={saveChicken}>
               Mark complete
             </button>
           </div>
         </div>
+      )}
+
+      {mealTarget && (
+        <MealProteinModal
+          title={mealTarget.name}
+          onCancel={() => setMealTarget(null)}
+          onSave={async ({ estimatedProtein, estimatedCarbs, breakdown, notes }) => {
+            await writeCompletion(mealTarget, true, {
+              logMode: breakdown.length ? 'APPROXIMATE' : 'CHECKLIST',
+              estimatedProtein,
+              estimatedCarbs,
+              proteinBreakdown: breakdown,
+              notes,
+            })
+            setPulseId(mealTarget.id)
+            setMealTarget(null)
+            window.setTimeout(() => setPulseId(null), 420)
+          }}
+        />
+      )}
+
+      {shakeOpen && (
+        <ShakeLogModal
+          settings={settings}
+          reason={shakeOpen}
+          onCancel={() => setShakeOpen(null)}
+          onSave={async ({ estimatedProtein, estimatedCarbs, estimatedCalories, breakdown, notes }) => {
+            const whey = actions.find((a) => /whey/i.test(a.name))
+            if (whey) {
+              await writeCompletion(whey, true, {
+                logMode: 'APPROXIMATE',
+                estimatedProtein,
+                estimatedCarbs,
+                estimatedCalories,
+                proteinBreakdown: breakdown,
+                notes,
+              })
+            } else {
+              const now = new Date().toISOString()
+              await db.completions.put({
+                id: `${date}:${SHAKE_ACTION_ID}`,
+                date,
+                foodActionId: SHAKE_ACTION_ID,
+                completed: true,
+                logMode: 'APPROXIMATE',
+                estimatedProtein,
+                estimatedCarbs,
+                estimatedCalories,
+                proteinBreakdown: breakdown,
+                notes,
+                updatedAt: now,
+              })
+            }
+            setShakeOpen(null)
+          }}
+        />
       )}
 
       {checkInOpen && (
