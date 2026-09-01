@@ -15,6 +15,15 @@ Mobile-first personal muscle-gain companion built from the v1.2 specification se
 
 All logging works in the browser (IndexedDB on that device). Use **Download / share my data** to back up.
 
+### Install as an app (PWA)
+
+After the latest deploy, Forge can install as a **standalone app** (not just a browser shortcut):
+
+- **Android (Chrome):** open the site → menu (⋮) → **Install app** or **Add to Home screen**
+- **iPhone (Safari):** Share → **Add to Home Screen** → Open from the Forge icon
+
+You need a recent deploy with the web manifest + service worker. If you only see “shortcut”, hard-refresh the page or wait for GitHub Pages to finish updating.
+
 Deploy: every push to `master` rebuilds GitHub Pages via Actions.
 
 ## Run locally

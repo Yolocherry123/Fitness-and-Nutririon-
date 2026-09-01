@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Forge">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#122019"/>
+      <stop offset="100%" stop-color="#0c1411"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7cb89a"/>
+      <stop offset="100%" stop-color="#5fa07d"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <rect x="36" y="36" width="440" height="440" rx="88" fill="none" stroke="#7cb89a" stroke-opacity="0.25" stroke-width="8"/>
+  <path fill="url(#accent)" d="M148 148h216c22 0 40 18 40 40v28c0 22-18 40-40 40H212v44h116c22 0 40 18 40 40v28c0 22-18 40-40 40H148V148zm64 64v56h100c6.6 0 12-5.4 12-12v-32c0-6.6-5.4-12-12-12H212zm0 128v56h116c6.6 0 12-5.4 12-12v-32c0-6.6-5.4-12-12-12H212z"/>
+</svg>
