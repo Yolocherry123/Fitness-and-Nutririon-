@@ -103,7 +103,7 @@ export function ProgressScreen() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 12, height: 220 }}>
+      <div className="card chart-container">
         {chartData.length < 3 ? (
           <div className="empty-state">
             <IconChart className="empty-state-icon" />

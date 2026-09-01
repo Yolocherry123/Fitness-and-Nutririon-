@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Modal } from './Modal'
 import type { ProteinBreakdownLine, ProteinPortion } from '../models/types'
 import {
   HOSTEL_PROTEIN_SOURCES,
@@ -85,84 +86,81 @@ export function MealProteinModal({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{title}</h2>
-        <p className="muted small">
-          {subtitle ??
-            'Select what you actually ate. Estimates are approximate — not exact lab values.'}
-        </p>
-
-        <div className="stack" style={{ marginTop: 10, maxHeight: '50vh', overflow: 'auto' }}>
-          {HOSTEL_PROTEIN_SOURCES.map((src) => {
-            const on = !!selected[src.id]
-            const portion =
-              selected[src.id] && selected[src.id] !== true
-                ? (selected[src.id] as ProteinPortion)
-                : 'normal'
-            return (
-              <div key={src.id} className="card" style={{ padding: '10px 12px' }}>
-                <label className="check-row" style={{ margin: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={() => toggle(src.id, src.fixedG != null)}
-                  />
-                  <span className="check-title" style={{ fontWeight: 500 }}>
-                    {src.label}
-                    {src.fixedG != null ? ` · ~${src.fixedG} g` : ''}
-                  </span>
-                </label>
-                {on && src.byPortion && (
-                  <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                    {PORTIONS.map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        className={`chip${portion === p ? ' on' : ''}`}
-                        style={{
-                          borderColor: portion === p ? 'var(--accent)' : undefined,
-                          color: portion === p ? 'var(--accent)' : undefined,
-                        }}
-                        onClick={() => setPortion(src.id, p)}
-                      >
-                        {p} (~{src.byPortion![p]} g)
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        <p className="small" style={{ marginTop: 12 }}>
-          Est. protein <strong>~{totals.protein} g</strong>
-          {' · '}
-          carbs <strong>~{totals.carbs} g</strong>
-        </p>
-
-        <button type="button" className="btn btn-primary btn-block" onClick={save}>
-          Save meal
-        </button>
-        <button type="button" className="btn btn-ghost btn-block" onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary btn-block"
-          onClick={() =>
-            onSave({
-              estimatedProtein: 0,
-              estimatedCarbs: 0,
-              breakdown: [],
-              notes: 'Consumed — protein sources not logged',
-            })
-          }
-        >
-          Skip details (checklist only)
-        </button>
+    <Modal
+      title={title}
+      subtitle={
+        subtitle ??
+        'Select what you actually ate. Estimates are approximate — not exact lab values.'
+      }
+      onClose={onCancel}
+      footer={
+        <>
+          <p className="small" style={{ margin: 0 }}>
+            Est. protein <strong>~{totals.protein} g</strong>
+            {' · '}
+            carbs <strong>~{totals.carbs} g</strong>
+          </p>
+          <button type="button" className="btn btn-primary btn-block" onClick={save}>
+            Save meal
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-block"
+            onClick={() =>
+              onSave({
+                estimatedProtein: 0,
+                estimatedCarbs: 0,
+                breakdown: [],
+                notes: 'Consumed — protein sources not logged',
+              })
+            }
+          >
+            Skip details (checklist only)
+          </button>
+          <button type="button" className="btn btn-ghost btn-block" onClick={onCancel}>
+            Cancel
+          </button>
+        </>
+      }
+    >
+      <div className="stack">
+        {HOSTEL_PROTEIN_SOURCES.map((src) => {
+          const on = !!selected[src.id]
+          const portion =
+            selected[src.id] && selected[src.id] !== true
+              ? (selected[src.id] as ProteinPortion)
+              : 'normal'
+          return (
+            <div key={src.id} className="card" style={{ padding: '10px 12px' }}>
+              <label className="check-row" style={{ margin: 0, padding: '6px 0' }}>
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => toggle(src.id, src.fixedG != null)}
+                />
+                <span className="check-title" style={{ fontWeight: 500 }}>
+                  {src.label}
+                  {src.fixedG != null ? ` · ~${src.fixedG} g` : ''}
+                </span>
+              </label>
+              {on && src.byPortion && (
+                <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  {PORTIONS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`chip${portion === p ? ' on' : ''}`}
+                      onClick={() => setPortion(src.id, p)}
+                    >
+                      {p} (~{src.byPortion![p]} g)
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
-    </div>
+    </Modal>
   )
 }

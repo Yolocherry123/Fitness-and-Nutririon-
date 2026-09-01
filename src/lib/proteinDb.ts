@@ -131,6 +131,9 @@ export const DEFAULT_FOOD_PROTEIN: Record<string, number> = {
   'night milk': 8,
   'night food': 10,
   banana: 1,
+  sattu: 12,
+  'pb sandwich': 8,
+  'peanut butter': 8,
   creatine: 0,
   water: 0,
 }
@@ -144,6 +147,9 @@ export const DEFAULT_FOOD_CARBS: Record<string, number> = {
   'night milk': 12,
   'night food': 35,
   banana: 25,
+  sattu: 22,
+  'pb sandwich': 35,
+  'peanut butter': 20,
   creatine: 0,
   water: 0,
 }

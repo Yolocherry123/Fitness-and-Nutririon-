@@ -267,7 +267,31 @@ export function buildFoodActions(): FoodAction[] {
     notes: 'Only if useful for calories',
   })
 
+  // Sattu — optional calorie/nutrition tool every day
+  actions.push({
+    id: 'food-sattu-optional',
+    name: 'Sattu drink (optional)',
+    dayOfWeek: null,
+    timeWindow: 'Afternoon',
+    category: 'OPTIONAL',
+    sortOrder: 48,
+    notes:
+      'Flexible calorie/snack tool — not required daily. Does not replace major protein sources. Afternoon or between meals when convenient.',
+  })
+
   return actions
+}
+
+export const SATTU_RECIPE_IDS = [
+  'recipe-sattu-basic',
+  'recipe-sattu-sweet',
+  'recipe-sattu-savory',
+] as const
+
+export function sattuSeedRecipes(): Recipe[] {
+  return RECIPES.filter((r) =>
+    (SATTU_RECIPE_IDS as readonly string[]).includes(r.id),
+  )
 }
 
 export const WORKOUT_DAYS: WorkoutDay[] = [
@@ -538,5 +562,51 @@ export const RECIPES: Recipe[] = [
       'Blend or shake whey with liquid. Add banana/oats/PB only when specifically needed for calories. Do not force a large shake if dinner is imminent and targets are covered.',
     substitutions: ['Water if milk unavailable'],
     storage: 'Consume soon after preparing.',
+  },
+  {
+    id: 'recipe-sattu-basic',
+    name: 'Basic Sattu Drink',
+    category: 'Calorie tool',
+    ingredients: ['Sattu flour', 'Water'],
+    quantities: ['30–50 g (editable)', 'As needed to mix'],
+    preparation:
+      'Mix sattu with cold water to a drinkable consistency. Stir well and drink. Convenient calories and energy — not a primary protein source.',
+    substitutions: ['Adjust amount to appetite; check Settings for your product label'],
+    storage: 'Prepare fresh. Consume soon after mixing.',
+    nutritionNote:
+      'Estimates use Settings → Sattu product label when set; otherwise approximate defaults (~150 kcal / 12 g protein per 40 g).',
+  },
+  {
+    id: 'recipe-sattu-sweet',
+    name: 'Sweet Sattu Shake',
+    category: 'Calorie tool',
+    ingredients: [
+      'Sattu flour',
+      'Water OR milk OR milk-powder drink',
+      'Optional banana',
+      'Optional small sweetener',
+    ],
+    quantities: ['30–50 g', 'As needed', '1 if useful', 'Pinch if desired'],
+    preparation:
+      'Mix sattu with your chosen liquid. For milk-powder drink, prepare per package instructions first. Add banana for extra calories. Sweetener adds negligible calories.',
+    substitutions: [
+      'Milk powder + water per package when fresh milk unavailable',
+      'Skip banana if not needed for calories',
+    ],
+    storage: 'Prepare fresh. Consume soon after mixing.',
+    nutritionNote:
+      'Nutrition calculated from your sattu label + selected liquid. Banana adds ~90 kcal when included.',
+  },
+  {
+    id: 'recipe-sattu-savory',
+    name: 'Savory Sattu Drink',
+    category: 'Calorie tool',
+    ingredients: ['Sattu flour', 'Water', 'Salt', 'Lemon', 'Optional spices'],
+    quantities: ['30–50 g', 'As needed', 'Pinch', 'Squeeze', 'To taste'],
+    preparation:
+      'Mix sattu with water, salt, and lemon to taste. Optional spices (cumin, black salt) add flavor with negligible calories. Light convenient snack.',
+    substitutions: ['Adjust sattu amount to appetite'],
+    storage: 'Prepare fresh.',
+    nutritionNote: 'Salt, lemon, and spices contribute negligible calories.',
   },
 ]

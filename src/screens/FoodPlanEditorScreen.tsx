@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CategoryBadge } from '../components/Badges'
+import { Modal } from '../components/Modal'
 import { db } from '../db'
 import {
   addFoodAction,
@@ -207,9 +208,38 @@ function FoodActionForm({
   const [milkPowder, setMilkPowder] = useState(!!initial.allowsMilkPowderSub)
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{title}</h2>
+    <Modal
+      title={title}
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            className="btn btn-primary btn-block"
+            onClick={() => {
+              if (!name.trim()) return
+              onSave({
+                ...initial,
+                id: initial.id || 'temp',
+                name: name.trim(),
+                dayOfWeek: everyDay ? null : dayOfWeek,
+                timeWindow,
+                category,
+                quantity: quantity.trim() || undefined,
+                unit: unit.trim() || undefined,
+                notes: notes.trim() || undefined,
+                sortOrder,
+                allowsMilkPowderSub: milkPowder || undefined,
+              })
+            }}
+          >
+            Save
+          </button>
+          <button className="btn btn-ghost btn-block" onClick={onClose}>
+            Cancel
+          </button>
+        </>
+      }
+    >
         <div className="field">
           <label>Name</label>
           <input
@@ -327,7 +357,7 @@ function FoodActionForm({
           />
         </div>
 
-        <div className="card row-between" style={{ marginBottom: 12 }}>
+        <div className="card row-between" style={{ marginBottom: 0 }}>
           <span>Allow milk powder as substitute note</span>
           <button
             type="button"
@@ -335,32 +365,6 @@ function FoodActionForm({
             onClick={() => setMilkPowder((v) => !v)}
           />
         </div>
-
-        <button
-          className="btn btn-primary btn-block"
-          onClick={() => {
-            if (!name.trim()) return
-            onSave({
-              ...initial,
-              id: initial.id || 'temp',
-              name: name.trim(),
-              dayOfWeek: everyDay ? null : dayOfWeek,
-              timeWindow,
-              category,
-              quantity: quantity.trim() || undefined,
-              unit: unit.trim() || undefined,
-              notes: notes.trim() || undefined,
-              sortOrder,
-              allowsMilkPowderSub: milkPowder || undefined,
-            })
-          }}
-        >
-          Save
-        </button>
-        <button className="btn btn-ghost btn-block" onClick={onClose}>
-          Cancel
-        </button>
-      </div>
-    </div>
+    </Modal>
   )
 }

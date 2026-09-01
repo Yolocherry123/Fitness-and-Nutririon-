@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { SourceBadge } from '../components/Badges'
+import { Modal } from '../components/Modal'
 import { db, uid } from '../db'
 import { recommendProgression } from '../engines/logic'
 import {
@@ -551,37 +552,37 @@ export function WorkoutSessionScreen() {
       )}
 
       {missOpen && !isLocked && (
-        <div className="modal-backdrop" onClick={() => setMissOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Missed workout</h2>
-            <p className="muted small">
-              Do not automatically stack multiple hard workouts. Choose one option.
-            </p>
-            <div className="stack">
-              <button
-                className="btn btn-secondary btn-block"
-                onClick={() => handleMiss('SKIPPED')}
-              >
-                Skip and continue the plan
-              </button>
-              <button
-                className="btn btn-secondary btn-block"
-                onClick={() => handleMiss('MISSED')}
-              >
-                Mark missed — resume when recovered
-              </button>
-              <button
-                className="btn btn-secondary btn-block"
-                onClick={() => handleMiss('RESCHEDULE')}
-              >
-                Reschedule → open next training day
-              </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setMissOpen(false)}>
-                Cancel
-              </button>
-            </div>
+        <Modal
+          title="Missed workout"
+          subtitle="Do not automatically stack multiple hard workouts. Choose one option."
+          onClose={() => setMissOpen(false)}
+          footer={
+            <button className="btn btn-ghost btn-block" onClick={() => setMissOpen(false)}>
+              Cancel
+            </button>
+          }
+        >
+          <div className="stack">
+            <button
+              className="btn btn-secondary btn-block"
+              onClick={() => handleMiss('SKIPPED')}
+            >
+              Skip and continue the plan
+            </button>
+            <button
+              className="btn btn-secondary btn-block"
+              onClick={() => handleMiss('MISSED')}
+            >
+              Mark missed — resume when recovered
+            </button>
+            <button
+              className="btn btn-secondary btn-block"
+              onClick={() => handleMiss('RESCHEDULE')}
+            >
+              Reschedule → open next training day
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {editEx && !isLocked && (
@@ -1031,18 +1032,23 @@ function EditExerciseModal({
 }) {
   const [name, setName] = useState(exercise.name)
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Edit exercise</h2>
-        <p className="muted small">Saves as CUSTOM. History of prior logs stays intact.</p>
-        <div className="field">
-          <label>Name</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <button className="btn btn-primary btn-block" onClick={() => onSave(name.trim() || exercise.name)}>
+    <Modal
+      title="Edit exercise"
+      subtitle="Saves as CUSTOM. History of prior logs stays intact."
+      onClose={onClose}
+      footer={
+        <button
+          className="btn btn-primary btn-block"
+          onClick={() => onSave(name.trim() || exercise.name)}
+        >
           Save
         </button>
+      }
+    >
+      <div className="field" style={{ marginBottom: 0 }}>
+        <label>Name</label>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
       </div>
-    </div>
+    </Modal>
   )
 }

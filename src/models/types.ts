@@ -133,6 +133,23 @@ export type ShakeStyle =
   | 'whey_banana'
   | 'custom'
 
+export type SattuRecipeType = 'basic' | 'sweet' | 'savory' | 'custom'
+
+export type SattuLiquidType = 'water' | 'milk' | 'milk_powder'
+
+export type NutritionSource = 'DEFAULT_ESTIMATE' | 'PRODUCT_LABEL' | 'USER_CUSTOM'
+
+export interface SattuProduct {
+  id: string
+  brand: string
+  servingSizeG: number
+  calories: number
+  protein: number
+  carbohydrates: number
+  fat: number
+  nutritionSource: NutritionSource
+}
+
 export type ProteinRecoStatus =
   | 'ON_TRACK'
   | 'CLOSE'
@@ -304,9 +321,20 @@ export interface AppSettings {
   wheyCaloriesPerServing?: number
   milkPowderProteinPerServingG?: number
   milkProteinPerGlassG?: number
+  /** Sattu product label — editable */
+  sattuBrandName?: string
+  sattuServingSizeG?: number
+  sattuCaloriesPerServing?: number
+  sattuProteinPerServingG?: number
+  sattuCarbsPerServingG?: number
+  sattuFatPerServingG?: number
+  sattuNutritionSource?: NutritionSource
 }
 
-export const CURRENT_SEED_REVISION = 3
+export const CURRENT_SEED_REVISION = 4
+
+/** Fixed id for optional sattu food action and ad-hoc logs */
+export const SATTU_ACTION_ID = 'food-sattu-optional'
 
 export interface WaistEntry {
   id: string

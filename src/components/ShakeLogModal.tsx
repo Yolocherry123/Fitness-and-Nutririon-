@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Modal } from './Modal'
 import type { AppSettings, ProteinBreakdownLine, ShakeStyle } from '../models/types'
 import {
   DEFAULT_MILK_GLASS_PROTEIN_G,
@@ -72,72 +73,71 @@ export function ShakeLogModal({
         ? 'Protein looks fine — this shake is for calories / convenience.'
         : 'Logged as a convenient protein tool.'
 
+  function handleSave() {
+    const breakdown: ProteinBreakdownLine[] = [
+      {
+        label: STYLES.find((s) => s.id === style)?.label ?? 'Shake',
+        grams: calc.protein,
+        source: style === 'custom' ? 'USER_CUSTOM' : 'PRODUCT_LABEL',
+      },
+    ]
+    onSave({
+      estimatedProtein: calc.protein,
+      estimatedCarbs: calc.carbs,
+      estimatedCalories: calc.calories,
+      breakdown,
+      notes: `Shake · ${STYLES.find((s) => s.id === style)?.label}`,
+      style,
+    })
+  }
+
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Add protein shake</h2>
-        <p className="muted small">{why} All values are estimated from your product settings.</p>
-
-        <div className="stack" style={{ marginTop: 10 }}>
-          {STYLES.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`check-row${style === s.id ? ' done' : ''}`}
-              onClick={() => setStyle(s.id)}
-            >
-              <span className="check-box">{style === s.id ? '✓' : ''}</span>
-              <span className="check-title">{s.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {style === 'custom' && (
-          <div className="field" style={{ marginTop: 10 }}>
-            <label>Estimated protein (g)</label>
-            <input
-              className="input"
-              type="number"
-              inputMode="decimal"
-              value={customProtein}
-              onChange={(e) => setCustomProtein(e.target.value)}
-            />
-          </div>
-        )}
-
-        <p className="small" style={{ marginTop: 12 }}>
-          Estimated protein: <strong>~{calc.protein} g</strong>
-          {calc.carbs > 0 ? ` · carbs ~${calc.carbs} g` : ''}
-          {calc.calories != null ? ` · ~${calc.calories} kcal` : ''}
-        </p>
-
-        <button
-          type="button"
-          className="btn btn-primary btn-block"
-          onClick={() => {
-            const breakdown: ProteinBreakdownLine[] = [
-              {
-                label: STYLES.find((s) => s.id === style)?.label ?? 'Shake',
-                grams: calc.protein,
-                source: style === 'custom' ? 'USER_CUSTOM' : 'PRODUCT_LABEL',
-              },
-            ]
-            onSave({
-              estimatedProtein: calc.protein,
-              estimatedCarbs: calc.carbs,
-              estimatedCalories: calc.calories,
-              breakdown,
-              notes: `Shake · ${STYLES.find((s) => s.id === style)?.label}`,
-              style,
-            })
-          }}
-        >
-          Log shake
-        </button>
-        <button type="button" className="btn btn-ghost btn-block" onClick={onCancel}>
-          Cancel
-        </button>
+    <Modal
+      title="Add protein shake"
+      subtitle={`${why} All values are estimated from your product settings.`}
+      onClose={onCancel}
+      footer={
+        <>
+          <p className="small" style={{ margin: 0 }}>
+            Estimated protein: <strong>~{calc.protein} g</strong>
+            {calc.carbs > 0 ? ` · carbs ~${calc.carbs} g` : ''}
+            {calc.calories != null ? ` · ~${calc.calories} kcal` : ''}
+          </p>
+          <button type="button" className="btn btn-primary btn-block" onClick={handleSave}>
+            Log shake
+          </button>
+          <button type="button" className="btn btn-ghost btn-block" onClick={onCancel}>
+            Cancel
+          </button>
+        </>
+      }
+    >
+      <div className="stack">
+        {STYLES.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            className={`check-row${style === s.id ? ' done' : ''}`}
+            onClick={() => setStyle(s.id)}
+          >
+            <span className="check-box">{style === s.id ? '✓' : ''}</span>
+            <span className="check-title">{s.label}</span>
+          </button>
+        ))}
       </div>
-    </div>
+
+      {style === 'custom' && (
+        <div className="field" style={{ marginTop: 10, marginBottom: 0 }}>
+          <label>Estimated protein (g)</label>
+          <input
+            className="input"
+            type="number"
+            inputMode="decimal"
+            value={customProtein}
+            onChange={(e) => setCustomProtein(e.target.value)}
+          />
+        </div>
+      )}
+    </Modal>
   )
 }

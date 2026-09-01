@@ -1,4 +1,4 @@
-import type { DayOfWeek, FoodAction, UserProfile } from '../models/types'
+import type { DayOfWeek, DailyCompletion, FoodAction, UserProfile } from '../models/types'
 import { dayOfWeekFromDate } from '../lib/dates'
 import { applyProfileFoodFilters } from '../engines/logic'
 
@@ -18,7 +18,7 @@ export function foodActionsForDay(
       (a) =>
         !(
           a.category === 'OPTIONAL' &&
-          /\b(chia|flax|sprouts|nuts)\b/i.test(a.name)
+          /\b(chia|flax|sprouts|nuts|sattu)\b/i.test(a.name)
         ),
     )
   }
@@ -67,4 +67,22 @@ export const WINDOW_LABELS: Record<string, string> = {
   Supplements: 'Supplements',
   Dinner: 'Dinner',
   Night: 'Night food',
+}
+
+const HIGH_FIBER_OPTIONAL_RE = /\b(chia|flax|sprouts|nuts|oats)\b/i
+
+/** True if user completed optional high-fiber items today (for stacking warnings). */
+export function highFiberOptionalsDoneToday(
+  actions: FoodAction[],
+  completions: DailyCompletion[],
+): boolean {
+  const done = new Set(
+    completions.filter((c) => c.completed).map((c) => c.foodActionId),
+  )
+  return actions.some(
+    (a) =>
+      a.category === 'OPTIONAL' &&
+      HIGH_FIBER_OPTIONAL_RE.test(a.name) &&
+      done.has(a.id),
+  )
 }

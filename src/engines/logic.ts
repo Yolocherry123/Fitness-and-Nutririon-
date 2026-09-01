@@ -262,7 +262,7 @@ export function creatineMissMessage(): string {
 }
 
 export function suggestCalorieGapTool(): string {
-  return 'Try ONE practical addition first: banana, peanut butter, milk/milk powder, PB sandwich, oats, nuts, or a small amount of ghee.'
+  return 'Try ONE practical addition first: banana, sattu drink, peanut butter, milk/milk powder, PB sandwich, oats, nuts, or a small amount of ghee.'
 }
 
 export function suggestProteinGapPriority(): string[] {

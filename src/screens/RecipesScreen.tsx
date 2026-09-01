@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { db, uid } from '../db'
 import { deleteRecipe, saveRecipe } from '../hooks/useProgram'
+import { Modal } from '../components/Modal'
 import type { Recipe } from '../models/types'
 
 const EMPTY: Omit<Recipe, 'id'> = {
@@ -166,9 +167,20 @@ function RecipeForm({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{isNew ? 'Add recipe' : 'Edit recipe'}</h2>
+    <Modal
+      title={isNew ? 'Add recipe' : 'Edit recipe'}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn-primary btn-block" onClick={submit}>
+            Save
+          </button>
+          <button className="btn btn-ghost btn-block" onClick={onClose}>
+            Cancel
+          </button>
+        </>
+      }
+    >
         <div className="field">
           <label>Name</label>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
@@ -227,7 +239,7 @@ function RecipeForm({
             onChange={(e) => setStorage(e.target.value)}
           />
         </div>
-        <div className="field">
+        <div className="field" style={{ marginBottom: 0 }}>
           <label>Nutrition note (optional)</label>
           <input
             className="input"
@@ -235,13 +247,6 @@ function RecipeForm({
             onChange={(e) => setNutritionNote(e.target.value)}
           />
         </div>
-        <button className="btn btn-primary btn-block" onClick={submit}>
-          Save
-        </button>
-        <button className="btn btn-ghost btn-block" onClick={onClose}>
-          Cancel
-        </button>
-      </div>
-    </div>
+    </Modal>
   )
 }

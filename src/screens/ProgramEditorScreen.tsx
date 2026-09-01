@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SourceBadge } from '../components/Badges'
+import { Modal } from '../components/Modal'
 import {
   addExerciseToDay,
   archiveAndCreatePlanVersion,
@@ -252,9 +253,37 @@ function ExerciseForm({
   const [variations, setVariations] = useState(initial?.variationOptions ?? '')
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{title}</h2>
+    <Modal
+      title={title}
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            className="btn btn-primary btn-block"
+            onClick={() => {
+              if (!name.trim()) return
+              onSave({
+                name,
+                sets,
+                repMin,
+                repMax,
+                targetRIRMin: rirMin,
+                targetRIRMax: rirMax,
+                restSecondsSuggested: rest,
+                perSide,
+                notes,
+                variationOptions: variations,
+              })
+            }}
+          >
+            Save
+          </button>
+          <button className="btn btn-ghost btn-block" onClick={onClose}>
+            Cancel
+          </button>
+        </>
+      }
+    >
         <div className="field">
           <label>Exercise name</label>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
@@ -329,7 +358,7 @@ function ExerciseForm({
           <label>Notes</label>
           <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
-        <div className="field">
+        <div className="field" style={{ marginBottom: 0 }}>
           <label>Variation options (one per line, optional)</label>
           <textarea
             className="input"
@@ -339,30 +368,6 @@ function ExerciseForm({
             placeholder="e.g. Incline press&#10;Feet-elevated push-ups"
           />
         </div>
-        <button
-          className="btn btn-primary btn-block"
-          onClick={() => {
-            if (!name.trim()) return
-            onSave({
-              name,
-              sets,
-              repMin,
-              repMax,
-              targetRIRMin: rirMin,
-              targetRIRMax: rirMax,
-              restSecondsSuggested: rest,
-              perSide,
-              notes,
-              variationOptions: variations,
-            })
-          }}
-        >
-          Save
-        </button>
-        <button className="btn btn-ghost btn-block" onClick={onClose}>
-          Cancel
-        </button>
-      </div>
-    </div>
+    </Modal>
   )
 }

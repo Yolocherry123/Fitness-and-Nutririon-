@@ -1,0 +1,369 @@
+SATTU DRINK INTEGRATION — PERSONAL FITNESS APP SPECIFICATION
+
+PURPOSE
+====================================================
+Integrate Sattu Drink into the existing Personal Fitness App and nutrition plan.
+
+Sattu is a flexible nutrition tool. It is NOT a compulsory daily food.
+
+PRIMARY USES:
+- Additional calories
+- Carbohydrates/energy
+- Convenient snack
+- Some additional protein
+
+Do NOT treat Sattu as a primary replacement for major protein sources when the user has a significant protein gap.
+
+====================================================
+CLASSIFICATION
+====================================================
+
+CATEGORY: OPTIONAL NUTRITION TOOL
+
+Possible purposes:
+1. Calorie tool
+2. Convenient snack
+3. Energy/carbohydrate tool
+4. Small additional protein contribution
+
+Skipping Sattu must NOT reduce CORE completion or daily success scores.
+
+====================================================
+WHEN TO SUGGEST SATTU
+====================================================
+
+The app may suggest Sattu when:
+- Daily calories appear low
+- The user needs an easy afternoon snack
+- A mess meal was small
+- The user struggles to eat enough calories
+- The user wants convenient liquid nutrition
+- Appetite is too low for another heavy solid meal
+
+Do NOT automatically suggest Sattu every day.
+
+====================================================
+WHEN NOT TO USE SATTU AS THE MAIN SOLUTION
+====================================================
+
+If the main problem is a significant protein deficit, prioritize reliable protein sources:
+
+1. Protein available in normal meals
+2. Scheduled chicken/kebab
+3. Eggs
+4. Paneer or other substantial protein foods
+5. Whey when useful and convenient
+
+Sattu contributes some protein but should not be presented as equivalent to a whey shake or major protein meal.
+
+====================================================
+RECIPE LIBRARY
+====================================================
+
+Add these recipes:
+
+1. BASIC SATTU DRINK
+2. SWEET SATTU SHAKE
+3. SAVORY SATTU DRINK
+
+Each recipe must include:
+- Ingredients
+- Adjustable quantities
+- Preparation instructions
+- Optional substitutions
+- Estimated nutrition
+- Product-label override support
+
+====================================================
+BASIC SATTU DRINK
+====================================================
+
+Suggested starting serving:
+30–50 g sattu
+
+Liquid:
+- Water
+
+Purpose:
+- Convenient nutrition
+- Calories
+- Energy
+
+Serving size must be editable.
+
+====================================================
+SWEET SATTU SHAKE
+====================================================
+
+Possible ingredients:
+- 30–50 g sattu
+- Water OR milk
+- Milk prepared using milk powder when fresh milk is unavailable
+- Optional banana
+- Optional small amount of sweetener
+
+Purpose:
+- Additional calories
+- Energy
+- Convenient snack
+
+Calculate nutrition based on actual selected ingredients.
+
+====================================================
+SAVORY SATTU DRINK
+====================================================
+
+Possible ingredients:
+- 30–50 g sattu
+- Water
+- Salt
+- Lemon
+- Optional spices
+
+Purpose:
+- Light convenient snack
+- Fluid-based nutrition
+
+Do not assign significant calories to ingredients that contribute negligible calories.
+
+====================================================
+MILK POWDER COMPATIBILITY
+====================================================
+
+The user may not always have fresh milk available.
+
+Milk-based Sattu recipes must support:
+
+MILK POWDER + WATER
+
+prepared according to package instructions.
+
+When the user configures a specific milk powder product, use its product nutrition label whenever possible.
+
+====================================================
+NUTRITION DATABASE LOGIC
+====================================================
+
+Do NOT hard-code one exact nutrition value for every Sattu product.
+
+Different brands vary.
+
+Create configurable product data:
+
+SattuProduct:
+- id
+- brand/name
+- serving size
+- calories per serving
+- protein per serving
+- carbohydrates per serving
+- fat per serving
+- nutrition source
+
+Nutrition source:
+- DEFAULT_ESTIMATE
+- PRODUCT_LABEL
+- USER_CUSTOM
+
+Product-label values should take priority.
+
+If no product data is available, use clearly labeled approximate estimates.
+
+====================================================
+SMART CALORIE SYSTEM
+====================================================
+
+Integrate Sattu into the existing smart calorie recommendation system.
+
+If calories appear low, suggest ONE practical addition at a time.
+
+Possible options:
+- Banana
+- Sattu Drink
+- Peanut butter
+- PB sandwich
+- Milk/milk-powder drink
+- Oats
+- Nuts
+- Small amount of ghee when appropriate
+
+Do NOT automatically stack all calorie tools.
+
+Example:
+
+"Your calorie intake appears lower than planned. Choose one convenient addition."
+
+Options:
+[Banana]
+[Sattu Drink]
+[PB Sandwich]
+[Milk]
+[Other]
+
+====================================================
+SMART PROTEIN SYSTEM
+====================================================
+
+The Smart Protein & Shake Recommendation System must recognize Sattu.
+
+When consumed:
+- Add estimated protein to CURRENT PROTEIN
+- Add calories when available
+
+However, do not assume Sattu solves a major protein gap.
+
+Example:
+
+"Sattu contributes some protein, but you may still need a substantial protein source."
+
+====================================================
+TODAY SCREEN INTEGRATION
+====================================================
+
+Add Sattu under:
+
+OPTIONAL CALORIE / NUTRITION TOOLS
+
+Quick logging options:
+
+[Sattu Drink]
+- Basic Sattu
+- Sweet Sattu Shake
+- Savory Sattu Drink
+- Custom
+
+The app should support:
+- Sattu amount
+- Liquid used
+- Optional ingredients
+
+Use presets and quick selection to minimize typing.
+
+====================================================
+WHEN TO DRINK SATTU
+====================================================
+
+Recommended flexible timing:
+- Afternoon snack
+- Between meals
+- When calories are low
+- When convenient liquid nutrition is preferred
+
+Do NOT force a fixed daily time.
+
+The user may use it before training if comfortable, but it should not automatically replace existing pre-workout nutrition.
+
+====================================================
+DIGESTION LOGIC
+====================================================
+
+Sattu should fit into the existing flexible digestion system.
+
+Consider other optional high-fiber foods:
+- Oats
+- Chia
+- Flax
+- Sprouts
+- Nuts
+- Sattu
+
+Do not recommend unnecessary stacking of multiple high-fiber additions in one day.
+
+If the user reports:
+- Bloating
+- Excessive gas
+- Digestive discomfort
+
+the app may suggest simplifying optional additions.
+
+Do not provide medical diagnoses.
+
+====================================================
+WEEKLY FOOD PLAN INTEGRATION
+====================================================
+
+Do NOT make Sattu compulsory on a specific weekday.
+
+Instead, make it available every day as an:
+
+OPTIONAL CALORIE / NUTRITION TOOL
+
+Daily logic:
+
+If calorie intake appears low, consider ONE practical addition:
+
+- Sattu Drink
+OR
+- Banana
+OR
+- PB sandwich
+OR
+- Milk/milk-powder drink
+OR
+- Nuts
+
+Do not require all of them.
+
+====================================================
+COMPLETION LOGIC
+====================================================
+
+Sattu is OPTIONAL.
+
+Therefore:
+- Drinking Sattu is not required for daily completion.
+- Skipping Sattu does not reduce CORE completion.
+- Consuming Sattu is logged as an additional nutrition action.
+
+====================================================
+DATA MODEL ADDITIONS
+====================================================
+
+SattuRecipe:
+- id
+- name
+- recipe_type
+- ingredients
+- default_serving
+
+SattuProduct:
+- id
+- brand
+- serving_size
+- calories
+- protein
+- carbohydrates
+- fat
+- nutrition_source
+
+SattuLog:
+- date
+- recipe_id
+- sattu_product_id
+- amount
+- liquid_type
+- optional_ingredients
+- estimated_calories
+- estimated_protein
+- status
+
+====================================================
+FINAL PRODUCT PRINCIPLE
+====================================================
+
+The app must NOT say:
+
+"You must drink Sattu today."
+
+Instead, treat Sattu as:
+
+"A flexible calorie and nutrition tool that may be useful when additional food or convenient calories are needed."
+
+The overall nutrition priority remains:
+
+1. Consistent main meals
+2. Adequate protein
+3. Adequate calories
+4. Convenient optional additions when useful
+
+Sattu is an OPTIONAL tool within this system.

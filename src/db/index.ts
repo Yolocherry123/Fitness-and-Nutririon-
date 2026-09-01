@@ -27,7 +27,9 @@ import {
   buildExercises,
   buildFoodActions,
   buildPrescriptions,
+  sattuSeedRecipes,
 } from '../data/seed'
+import { SATTU_ACTION_ID } from '../models/types'
 
 export class FitnessDB extends Dexie {
   profile!: Table<UserProfile, string>
@@ -89,6 +91,17 @@ async function refreshFoodAndRecipes(): Promise<void> {
     await db.recipes.bulkPut(RECIPES)
   }
   await polishFoodActionCopy()
+  await polishRecipes()
+}
+
+async function polishRecipes(): Promise<void> {
+  const sattu = sattuSeedRecipes()
+  for (const recipe of sattu) {
+    const existing = await db.recipes.get(recipe.id)
+    if (!existing) {
+      await db.recipes.put(recipe)
+    }
+  }
 }
 
 /** Update wording on known items without wiping user-added foods. */
@@ -111,6 +124,20 @@ async function polishFoodActionCopy(): Promise<void> {
           'Optional shake — not required every day. Use when meals leave you short on protein. After workout or with a meal is fine; timing is flexible.',
       })
     }
+  }
+
+  const sattu = await db.foodActions.get(SATTU_ACTION_ID)
+  if (!sattu) {
+    await db.foodActions.put({
+      id: SATTU_ACTION_ID,
+      name: 'Sattu drink (optional)',
+      dayOfWeek: null,
+      timeWindow: 'Afternoon',
+      category: 'OPTIONAL',
+      sortOrder: 48,
+      notes:
+        'Flexible calorie/snack tool — not required daily. Does not replace major protein sources. Afternoon or between meals when convenient.',
+    })
   }
 }
 
@@ -244,6 +271,7 @@ export async function ensureSeeded(): Promise<void> {
     await refreshFoodAndRecipes()
   } else {
     await polishFoodActionCopy()
+    await polishRecipes()
   }
 
   if ((await db.planVersions.count()) === 0) {

@@ -6,6 +6,12 @@ import { HeaderIconButton, useHeaderHints } from '../components/HeaderActions'
 import { IconBook, IconCheckIn, IconGear, IconScale } from '../components/Icons'
 import { MealProteinModal } from '../components/MealProteinModal'
 import { ShakeLogModal } from '../components/ShakeLogModal'
+import { SattuLogModal } from '../components/SattuLogModal'
+import {
+  CalorieToolPickerModal,
+  type CalorieToolChoice,
+} from '../components/CalorieToolPickerModal'
+import { Modal } from '../components/Modal'
 import { db, uid } from '../db'
 import {
   creatineMissMessage,
@@ -26,9 +32,10 @@ import {
   todayISO,
   dayOfWeekFromDate,
 } from '../lib/dates'
-import { foodActionsForDate, groupByTimeWindow, WINDOW_LABELS } from '../lib/food'
+import { foodActionsForDate, groupByTimeWindow, highFiberOptionalsDoneToday, WINDOW_LABELS } from '../lib/food'
 import { chickenProteinEstimate, defaultCarbsForActionName, defaultProteinForActionName } from '../lib/proteinDb'
 import type { ActionCategory, ChickenMeasureType, DigestionStatus, FoodAction } from '../models/types'
+import { SATTU_ACTION_ID } from '../models/types'
 
 const MEASURE_OPTIONS: { value: ChickenMeasureType; label: string }[] = [
   { value: 'BONE_IN', label: 'Bone-in serving' },
@@ -39,6 +46,10 @@ const MEASURE_OPTIONS: { value: ChickenMeasureType; label: string }[] = [
 
 const TIP_KEY = 'forge-tip-dismissed-v1'
 const SHAKE_ACTION_ID = 'shake-extra'
+
+function isSattuAction(action: FoodAction): boolean {
+  return action.id === SATTU_ACTION_ID || /sattu/i.test(action.name)
+}
 
 function needsMealProteinPicker(action: FoodAction): boolean {
   return /hostel breakfast|hostel lunch|hostel dinner/i.test(action.name)
@@ -93,6 +104,10 @@ export function TodayScreen() {
   const [shakeOpen, setShakeOpen] = useState<'protein' | 'calories' | 'convenience' | null>(
     null,
   )
+  const [sattuOpen, setSattuOpen] = useState<
+    'calories' | 'convenience' | 'protein_caveat' | null
+  >(null)
+  const [caloriePickerOpen, setCaloriePickerOpen] = useState(false)
   const [proteinDetails, setProteinDetails] = useState(false)
   const [creatineNote, setCreatineNote] = useState<string | null>(null)
   const [checkInOpen, setCheckInOpen] = useState(false)
@@ -163,6 +178,88 @@ export function TodayScreen() {
     [actions, completions, profile, settings, showGapCard, scores.consistencyPct],
   )
 
+  const fiberWarning =
+    !!profile?.digestionMode || highFiberOptionalsDoneToday(actions, completions)
+
+  async function saveSattuLog(result: {
+    estimatedProtein: number
+    estimatedCarbs: number
+    estimatedCalories: number
+    breakdown: import('../models/types').ProteinBreakdownLine[]
+    notes: string
+  }) {
+    const sattuAction =
+      actions.find(isSattuAction) ??
+      ({
+        id: SATTU_ACTION_ID,
+        name: 'Sattu drink (optional)',
+        dayOfWeek: null,
+        timeWindow: 'Afternoon',
+        category: 'OPTIONAL' as const,
+        sortOrder: 48,
+      } satisfies FoodAction)
+    await writeCompletion(sattuAction, true, {
+      logMode: 'APPROXIMATE',
+      estimatedProtein: result.estimatedProtein,
+      estimatedCarbs: result.estimatedCarbs,
+      estimatedCalories: result.estimatedCalories,
+      proteinBreakdown: result.breakdown,
+      notes: result.notes,
+    })
+    setPulseId(sattuAction.id)
+    window.setTimeout(() => setPulseId(null), 420)
+    setSattuOpen(null)
+    setCaloriePickerOpen(false)
+  }
+
+  async function quickLogCalorieTool(choice: CalorieToolChoice) {
+    if (choice === 'sattu') {
+      setCaloriePickerOpen(false)
+      setSattuOpen('calories')
+      return
+    }
+    if (choice === 'other') {
+      setCaloriePickerOpen(false)
+      setShowOptionalExtras(true)
+      return
+    }
+
+    const matchers: Record<Exclude<CalorieToolChoice, 'sattu' | 'other'>, RegExp> = {
+      banana: /banana/i,
+      pb_sandwich: /peanut butter sandwich|pb sandwich/i,
+      milk: /night milk|milk.*curd/i,
+    }
+    const pattern = matchers[choice]
+    const match = actions.find(
+      (a) => a.category === 'OPTIONAL' && pattern.test(a.name),
+    )
+    if (match) {
+      await writeCompletion(match, true, { logMode: 'APPROXIMATE' })
+      setPulseId(match.id)
+      window.setTimeout(() => setPulseId(null), 420)
+    } else {
+      const now = new Date().toISOString()
+      const id = `calorie-tool:${choice}`
+      const labels: Record<string, string> = {
+        banana: 'Banana (quick log)',
+        pb_sandwich: 'PB sandwich (quick log)',
+        milk: 'Milk drink (quick log)',
+      }
+      await db.completions.put({
+        id: `${date}:${id}`,
+        date,
+        foodActionId: id,
+        completed: true,
+        logMode: 'APPROXIMATE',
+        estimatedProtein: defaultProteinForActionName(labels[choice] ?? choice) ?? 0,
+        estimatedCarbs: defaultCarbsForActionName(labels[choice] ?? choice) ?? 0,
+        notes: labels[choice] ?? choice,
+        updatedAt: now,
+      })
+    }
+    setCaloriePickerOpen(false)
+  }
+
   async function writeCompletion(
     action: FoodAction,
     completed: boolean,
@@ -218,6 +315,17 @@ export function TodayScreen() {
 
     if (!currentlyDone && needsMealProteinPicker(action)) {
       setMealTarget(action)
+      return
+    }
+
+    if (!currentlyDone && isSattuAction(action)) {
+      setSattuOpen(
+        protein.sattuProteinCaveat
+          ? 'protein_caveat'
+          : protein.suggestCalorieTool
+            ? 'calories'
+            : 'convenience',
+      )
       return
     }
 
@@ -299,10 +407,10 @@ export function TodayScreen() {
 
   return (
     <div className="page">
-      <div className="row-between">
-        <div>
+    <div className="page-header">
+        <div className="page-header-main">
           <div className="brand">Forge</div>
-          <h1 style={{ marginTop: 4 }}>{greetingForHour()}</h1>
+          <h1 className="page-title">{greetingForHour()}</h1>
           <p className="hero-status">{formatDisplayDate(date)}</p>
         </div>
         <div className="header-actions">
@@ -439,9 +547,9 @@ export function TodayScreen() {
         <span className="chip">{remaining.length} left</span>
       </div>
 
-      <div className={`card protein-card tone-${statusTone(protein.status)}`} style={{ marginTop: 12, padding: '12px 14px' }}>
-        <div className="row-between" style={{ marginBottom: 8 }}>
-          <strong>Macros</strong>
+      <div className={`card protein-card tone-${statusTone(protein.status)}`} style={{ marginTop: 10 }}>
+        <div className="row-between" style={{ marginBottom: 6 }}>
+          <strong style={{ fontSize: '0.92rem' }}>Macros</strong>
           <span className="chip">{statusLabel(protein.status)}</span>
         </div>
         <div className="macro-grid">
@@ -449,31 +557,46 @@ export function TodayScreen() {
             <div className="macro-label">Protein</div>
             <div className="macro-line">
               <strong>{protein.consumedProtein}</strong>
-              <span className="muted"> +{protein.expectedRemainingProtein}</span>
-              <span className="muted"> → {protein.expectedDailyProtein}</span>
-              <span className="faint"> / {protein.targetProtein}g</span>
+              <span className="muted">+{protein.expectedRemainingProtein}</span>
+              <span className="muted">→ {protein.expectedDailyProtein}</span>
+              <span className="faint">/ {protein.targetProtein}g</span>
             </div>
           </div>
           <div>
             <div className="macro-label">Carbs</div>
             <div className="macro-line">
               <strong>{protein.consumedCarbs}</strong>
-              <span className="muted"> +{protein.expectedRemainingCarbs}</span>
-              <span className="muted"> → {protein.expectedDailyCarbs}</span>
-              <span className="faint"> / {protein.carbTarget}g</span>
+              <span className="muted">+{protein.expectedRemainingCarbs}</span>
+              <span className="muted">→ {protein.expectedDailyCarbs}</span>
+              <span className="faint">/ {protein.carbTarget}g</span>
             </div>
           </div>
         </div>
-        <p className="small muted" style={{ margin: '8px 0 0' }}>
+        <p className="small muted" style={{ margin: '6px 0 0', lineHeight: 1.35 }}>
           {protein.primaryMessage}
         </p>
-        <div className="row" style={{ gap: 8, marginTop: 8 }}>
+        {protein.sattuProteinCaveat && (
+          <p className="small" style={{ margin: '6px 0 0', color: 'var(--warn)' }}>
+            {protein.sattuProteinCaveat}
+          </p>
+        )}
+        <div className="row macro-actions" style={{ gap: 6, marginTop: 6 }}>
+          {protein.suggestCalorieTool && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ flex: 1 }}
+              onClick={() => setCaloriePickerOpen(true)}
+            >
+              Add calories
+            </button>
+          )}
           {(protein.suggestShakeForProtein || protein.suggestShakeForCalories) &&
             profile?.usesWhey && (
               <button
                 type="button"
-                className="btn btn-primary"
-                style={{ flex: 1, padding: '8px 10px' }}
+                className="btn btn-primary btn-sm"
+                style={{ flex: 1 }}
                 onClick={() =>
                   setShakeOpen(
                     protein.suggestShakeForProtein ? 'protein' : 'calories',
@@ -485,8 +608,8 @@ export function TodayScreen() {
             )}
           <button
             type="button"
-            className="btn btn-ghost"
-            style={{ flex: 1, padding: '8px 10px' }}
+            className="btn btn-ghost btn-sm"
+            style={{ flex: 1 }}
             onClick={() => setProteinDetails((v) => !v)}
           >
             {proteinDetails ? 'Hide' : 'Details'}
@@ -499,6 +622,9 @@ export function TodayScreen() {
             </p>
             {protein.secondaryMessage && (
               <p className="small muted">{protein.secondaryMessage}</p>
+            )}
+            {protein.sattuProteinCaveat && (
+              <p className="small muted">{protein.sattuProteinCaveat}</p>
             )}
             <div className="section-label">Consumed protein (est.)</div>
             {protein.consumedLines.length === 0 && (
@@ -553,7 +679,7 @@ export function TodayScreen() {
       >
         {showOptionalExtras
           ? 'Hide optional tools'
-          : `Optional tools (${optionalExtras.length}) — whey, snacks, etc.`}
+          : `Optional tools (${optionalExtras.length}) — whey, sattu, snacks, etc.`}
       </button>
 
       <div className="card" style={{ marginTop: 14 }}>
@@ -587,71 +713,72 @@ export function TodayScreen() {
       </Link>
 
       {bwOpen && (
-        <div className="modal-backdrop" onClick={() => setBwOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Bodyweight</h2>
-            <p className="muted small">Similar morning conditions work best.</p>
-            <div className="field">
-              <label>Weight (kg)</label>
-              <input
-                className="input"
-                type="number"
-                step="0.1"
-                inputMode="decimal"
-                value={weight || (bwToday?.weightKg?.toString() ?? '')}
-                onChange={(e) => setWeight(e.target.value)}
-                autoFocus
-              />
-            </div>
+        <Modal
+          title="Bodyweight"
+          subtitle="Similar morning conditions work best."
+          onClose={() => setBwOpen(false)}
+          footer={
             <button className="btn btn-primary btn-block" onClick={saveWeight}>
               Save
             </button>
+          }
+        >
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Weight (kg)</label>
+            <input
+              className="input"
+              type="number"
+              step="0.1"
+              inputMode="decimal"
+              value={weight || (bwToday?.weightKg?.toString() ?? '')}
+              onChange={(e) => setWeight(e.target.value)}
+              autoFocus
+            />
           </div>
-        </div>
+        </Modal>
       )}
 
       {chickenTarget && (
-        <div className="modal-backdrop" onClick={() => setChickenTarget(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Log chicken / kebab</h2>
-            <p className="muted small">
-              Bone-in weight is not the same as edible meat weight. Protein stays
-              approximate.
-            </p>
-            <div className="field">
-              <label>Measurement type</label>
-              <select
-                className="select"
-                value={chickenMeasure}
-                onChange={(e) =>
-                  setChickenMeasure(e.target.value as ChickenMeasureType)
-                }
-              >
-                {MEASURE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Quantity (optional)</label>
-              <input
-                className="input"
-                value={chickenQty}
-                onChange={(e) => setChickenQty(e.target.value)}
-                placeholder="e.g. 320 g"
-              />
-            </div>
-            <p className="small muted">
-              Est. protein ≈{' '}
-              {chickenProteinEstimate(chickenMeasure, chickenQty || undefined)} g
-            </p>
+        <Modal
+          title="Log chicken / kebab"
+          subtitle="Bone-in weight is not the same as edible meat weight. Protein stays approximate."
+          onClose={() => setChickenTarget(null)}
+          footer={
             <button className="btn btn-primary btn-block" onClick={saveChicken}>
               Mark complete
             </button>
+          }
+        >
+          <div className="field">
+            <label>Measurement type</label>
+            <select
+              className="select"
+              value={chickenMeasure}
+              onChange={(e) =>
+                setChickenMeasure(e.target.value as ChickenMeasureType)
+              }
+            >
+              {MEASURE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Quantity (optional)</label>
+            <input
+              className="input"
+              value={chickenQty}
+              onChange={(e) => setChickenQty(e.target.value)}
+              placeholder="e.g. 320 g"
+            />
+          </div>
+          <p className="small muted" style={{ marginTop: 10, marginBottom: 0 }}>
+            Est. protein ≈{' '}
+            {chickenProteinEstimate(chickenMeasure, chickenQty || undefined)} g
+          </p>
+        </Modal>
       )}
 
       {mealTarget && (
@@ -707,6 +834,23 @@ export function TodayScreen() {
             }
             setShakeOpen(null)
           }}
+        />
+      )}
+
+      {caloriePickerOpen && (
+        <CalorieToolPickerModal
+          onCancel={() => setCaloriePickerOpen(false)}
+          onSelect={quickLogCalorieTool}
+        />
+      )}
+
+      {sattuOpen && (
+        <SattuLogModal
+          settings={settings}
+          reason={sattuOpen}
+          fiberWarning={fiberWarning}
+          onCancel={() => setSattuOpen(null)}
+          onSave={saveSattuLog}
         />
       )}
 
@@ -800,30 +944,32 @@ function CheckInModal({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Daily check-in</h2>
-        <ScaleField label="Energy" value={energy} onChange={setEnergy} />
-        <ScaleField label="Appetite" value={appetite} onChange={setAppetite} />
-        <div className="field">
-          <label>Digestion</label>
-          <select
-            className="select"
-            value={digestion}
-            onChange={(e) => setDigestion(e.target.value as DigestionStatus)}
-          >
-            <option>Good</option>
-            <option>Neutral</option>
-            <option>Poor</option>
-          </select>
-        </div>
-        <ScaleField label="Soreness" value={soreness} onChange={setSoreness} />
-        <ScaleField label="Stress" value={stress} onChange={setStress} />
+    <Modal
+      title="Daily check-in"
+      onClose={onClose}
+      footer={
         <button className="btn btn-primary btn-block" onClick={save}>
           Save check-in
         </button>
+      }
+    >
+      <ScaleField label="Energy" value={energy} onChange={setEnergy} />
+      <ScaleField label="Appetite" value={appetite} onChange={setAppetite} />
+      <div className="field">
+        <label>Digestion</label>
+        <select
+          className="select"
+          value={digestion}
+          onChange={(e) => setDigestion(e.target.value as DigestionStatus)}
+        >
+          <option>Good</option>
+          <option>Neutral</option>
+          <option>Poor</option>
+        </select>
       </div>
-    </div>
+      <ScaleField label="Soreness" value={soreness} onChange={setSoreness} />
+      <ScaleField label="Stress" value={stress} onChange={setStress} />
+    </Modal>
   )
 }
 

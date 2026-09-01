@@ -12,6 +12,7 @@ import {
   DEFAULT_WHEY_PROTEIN_G,
 } from '../lib/proteinDb'
 import { isChickenOrKebabAction } from './logic'
+import { isSattuCompletion } from '../lib/sattuDb'
 
 export interface ProteinLine {
   foodActionId: string
@@ -42,6 +43,8 @@ export interface ProteinSummary {
   secondaryMessage?: string
   suggestShakeForProtein: boolean
   suggestShakeForCalories: boolean
+  suggestCalorieTool: boolean
+  sattuProteinCaveat?: string
   foodFirst: boolean
   hour: number
   consumedLines: ProteinLine[]
@@ -76,8 +79,8 @@ function expectedProteinForAction(
   settings?: AppSettings | null,
 ): number {
   if (action.category === 'OPTIONAL' && !isChickenOrKebabAction(action)) {
-    // Don't bank on optional whey/snacks for expected remaining
-    if (/whey|shake/i.test(action.name)) return 0
+    // Don't bank on optional whey/snacks/sattu for expected remaining
+    if (/whey|shake|sattu/i.test(action.name)) return 0
   }
   if (isChickenOrKebabAction(action)) {
     return chickenProteinEstimate(
@@ -113,7 +116,7 @@ function carbsFromCompletion(
 }
 
 function expectedCarbsForAction(action: FoodAction): number {
-  if (action.category === 'OPTIONAL' && /whey|shake/i.test(action.name)) return 0
+  if (action.category === 'OPTIONAL' && /whey|shake|sattu/i.test(action.name)) return 0
   if (isChickenOrKebabAction(action)) return 0
   return defaultCarbsForActionName(action.name) ?? 0
 }
@@ -187,22 +190,29 @@ export function buildProteinSummary(input: {
     }
   }
 
-  // Shake / ad-hoc protein logs not tied to a plan row
+  // Shake / sattu / ad-hoc protein logs not tied to a plan row
+  let sattuLoggedToday = false
   for (const c of input.completions) {
     if (!c.completed) continue
     if (consumedLines.some((l) => l.foodActionId === c.foodActionId)) continue
+    if (isSattuCompletion(c.notes, c.foodActionId)) sattuLoggedToday = true
     const grams =
       c.exactProtein ??
       c.estimatedProtein ??
       c.proteinBreakdown?.reduce((s, l) => s + l.grams, 0) ??
       0
-    if (grams <= 0 && !(c.estimatedCarbs && c.estimatedCarbs > 0)) continue
+    if (grams <= 0 && !(c.estimatedCarbs && c.estimatedCarbs > 0) && !c.estimatedCalories) {
+      continue
+    }
     consumedCarbs += c.estimatedCarbs ?? 0
-    if (grams > 0) {
+    if (grams > 0 || isSattuCompletion(c.notes, c.foodActionId)) {
+      const name = isSattuCompletion(c.notes, c.foodActionId)
+        ? c.notes?.replace(/^Sattu · /, 'Sattu · ') || 'Sattu drink'
+        : c.notes?.replace(/^Shake · /, '') || 'Protein shake'
       consumedLines.push({
         foodActionId: c.foodActionId,
-        name: c.notes?.replace(/^Shake · /, '') || 'Protein shake',
-        grams,
+        name,
+        grams: grams > 0 ? grams : 0,
         status: 'CONSUMED',
         logMode: c.logMode,
         approximate: c.logMode !== 'EXACT',
@@ -270,6 +280,23 @@ export function buildProteinSummary(input: {
     suggestShakeForProtein = !!input.profile?.usesWhey && (late || !mealsRemain)
   }
 
+  const calorieFriendlyStatus =
+    status === 'ON_TRACK' || status === 'CLOSE'
+  const suggestCalorieTool =
+    status !== 'SIGNIFICANTLY_SHORT' &&
+    (calorieFriendlyStatus &&
+      (!!input.caloriesMayHelp || (hour >= 14 && carbGap > 30)))
+
+  let sattuProteinCaveat: string | undefined
+  if (
+    sattuLoggedToday &&
+    proteinGap > 20 &&
+    (status === 'LIKELY_SHORT' || status === 'SIGNIFICANTLY_SHORT')
+  ) {
+    sattuProteinCaveat =
+      'Sattu contributes some protein, but you may still need a substantial protein source.'
+  }
+
   return {
     consumedProtein,
     expectedRemainingProtein,
@@ -290,6 +317,8 @@ export function buildProteinSummary(input: {
     secondaryMessage,
     suggestShakeForProtein,
     suggestShakeForCalories: !!input.caloriesMayHelp && status === 'ON_TRACK',
+    suggestCalorieTool,
+    sattuProteinCaveat,
     foodFirst,
     hour,
     consumedLines,

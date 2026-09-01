@@ -377,7 +377,7 @@ export function ReviewScreen() {
         )}
         {advice.recommendation === 'INCREASE' && !canApply && !applyMsg && (
           <p className="small" style={{ marginTop: 8 }}>
-            Secondary: add ONE practical calorie tool — do not stack everything.
+            Secondary: add ONE practical calorie tool (banana, sattu drink, PB sandwich, milk) — do not stack everything.
           </p>
         )}
       </div>

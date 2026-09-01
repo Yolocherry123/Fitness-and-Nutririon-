@@ -211,6 +211,95 @@ export function SettingsScreen() {
         />
       </div>
 
+      <div className="section-label">Sattu product label</div>
+      <div className="card stack">
+        <p className="small muted" style={{ margin: 0 }}>
+          Approximate until you enter your package values. Used for sattu drink logging.
+        </p>
+        <Field
+          label="Brand / name"
+          value={settings?.sattuBrandName ?? ''}
+          onSave={async (v) => {
+            if (!settings) return
+            await db.settings.put({
+              ...settings,
+              sattuBrandName: v || undefined,
+              sattuNutritionSource: 'PRODUCT_LABEL',
+            })
+          }}
+        />
+        <Field
+          label="Serving size (g)"
+          value={settings?.sattuServingSizeG ?? 40}
+          onSave={async (v) => {
+            if (!settings) return
+            const n = Number(v)
+            if (!Number.isFinite(n) || n <= 0) return
+            await db.settings.put({
+              ...settings,
+              sattuServingSizeG: n,
+              sattuNutritionSource: 'PRODUCT_LABEL',
+            })
+          }}
+        />
+        <Field
+          label="Calories per serving"
+          value={settings?.sattuCaloriesPerServing ?? 150}
+          onSave={async (v) => {
+            if (!settings) return
+            const n = Number(v)
+            if (!Number.isFinite(n) || n < 0) return
+            await db.settings.put({
+              ...settings,
+              sattuCaloriesPerServing: n,
+              sattuNutritionSource: 'PRODUCT_LABEL',
+            })
+          }}
+        />
+        <Field
+          label="Protein per serving (g)"
+          value={settings?.sattuProteinPerServingG ?? 12}
+          onSave={async (v) => {
+            if (!settings) return
+            const n = Number(v)
+            if (!Number.isFinite(n) || n < 0) return
+            await db.settings.put({
+              ...settings,
+              sattuProteinPerServingG: n,
+              sattuNutritionSource: 'PRODUCT_LABEL',
+            })
+          }}
+        />
+        <Field
+          label="Carbs per serving (g)"
+          value={settings?.sattuCarbsPerServingG ?? 22}
+          onSave={async (v) => {
+            if (!settings) return
+            const n = Number(v)
+            if (!Number.isFinite(n) || n < 0) return
+            await db.settings.put({
+              ...settings,
+              sattuCarbsPerServingG: n,
+              sattuNutritionSource: 'PRODUCT_LABEL',
+            })
+          }}
+        />
+        <Field
+          label="Fat per serving (g)"
+          value={settings?.sattuFatPerServingG ?? 3}
+          onSave={async (v) => {
+            if (!settings) return
+            const n = Number(v)
+            if (!Number.isFinite(n) || n < 0) return
+            await db.settings.put({
+              ...settings,
+              sattuFatPerServingG: n,
+              sattuNutritionSource: 'PRODUCT_LABEL',
+            })
+          }}
+        />
+      </div>
+
       <div className="section-label">Modes & supplements</div>
       <ToggleRow
         label="Digestion Mode"
