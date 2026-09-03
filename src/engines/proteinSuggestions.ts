@@ -42,7 +42,7 @@ function eggCountForGap(gap: number): 1 | 2 | 3 {
   return 3
 }
 
-function syntheticEggsAction(count: 1 | 2 | 3, hint: string): FoodAction {
+function syntheticEggsAction(count: 1 | 2 | 3, _hint: string): FoodAction {
   const grams = proteinForSource(
     count === 1 ? 'eggs_1' : count === 2 ? 'eggs_2' : 'eggs_3',
   )
@@ -56,7 +56,7 @@ function syntheticEggsAction(count: 1 | 2 | 3, hint: string): FoodAction {
     quantity: `${count}`,
     unit: count === 1 ? 'egg' : 'eggs',
     estimatedProteinG: grams,
-    notes: hint,
+    notes: 'Convenient food protein — not required daily. Log when you eat them.',
   }
 }
 
