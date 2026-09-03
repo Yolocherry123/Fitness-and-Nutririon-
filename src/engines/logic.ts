@@ -294,3 +294,7 @@ export function isChickenOrKebabAction(action: FoodAction): boolean {
 export function isCreatineAction(action: FoodAction): boolean {
   return /creatine/i.test(action.name)
 }
+
+export function isWheyAction(action: Pick<FoodAction, 'name' | 'id'>): boolean {
+  return action.id === 'shake-extra' || /\bwhey\b/i.test(action.name)
+}

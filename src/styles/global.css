@@ -386,6 +386,19 @@ h3 {
   border-left-color: var(--optional);
 }
 
+.check-row.suggested {
+  border-left-color: var(--warm);
+  border-color: rgba(212, 165, 116, 0.35);
+  background: var(--warm-soft);
+}
+
+.chip-suggest {
+  background: var(--warm-soft);
+  color: var(--warm);
+  border: 1px solid rgba(212, 165, 116, 0.35);
+  font-size: 0.7rem;
+}
+
 .check-row:active {
   background: var(--surface-strong);
 }

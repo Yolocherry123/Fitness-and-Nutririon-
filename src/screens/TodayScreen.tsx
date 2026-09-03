@@ -17,6 +17,7 @@ import {
   creatineMissMessage,
   isChickenOrKebabAction,
   isCreatineAction,
+  isWheyAction,
   scoreCompletions,
   suggestCalorieGapTool,
 } from '../engines/logic'
@@ -130,26 +131,8 @@ export function TodayScreen() {
     [allFood, date, profile],
   )
 
-  const primaryActions = actions.filter((a) => a.category !== 'OPTIONAL')
-  const nightOptionals = actions.filter(
-    (a) => a.category === 'OPTIONAL' && a.timeWindow === 'Night',
-  )
-  const optionalExtras = actions.filter(
-    (a) => a.category === 'OPTIONAL' && a.timeWindow !== 'Night',
-  )
-  // Keep checked items in place so a mistaken tap can be unticked immediately
-  const listItems = showOptionalExtras
-    ? [...primaryActions, ...nightOptionals, ...optionalExtras]
-    : [...primaryActions, ...nightOptionals]
   const scores = scoreCompletions(actions, completions)
   const doneMap = new Map(completions.map((c) => [c.foodActionId, c]))
-
-  const remaining = primaryActions.filter((a) => !doneMap.get(a.id)?.completed)
-  const foodGroups = groupByTimeWindow(listItems)
-  const nextItem = remaining[0]
-  const nextWindow = nextItem
-    ? WINDOW_LABELS[nextItem.timeWindow] ?? nextItem.timeWindow
-    : null
 
   const creatineAction = actions.find(isCreatineAction)
   const creatineDone = creatineAction
@@ -177,6 +160,71 @@ export function TodayScreen() {
       }),
     [actions, completions, profile, settings, showGapCard, scores.consistencyPct],
   )
+
+  const suggestWheyInChecklist =
+    !!profile?.usesWhey &&
+    (protein.suggestShakeForProtein || protein.suggestShakeForCalories)
+
+  const wheyFromPlan = actions.find(isWheyAction)
+  const wheyAlreadyLogged = completions.some(
+    (c) =>
+      c.completed &&
+      (c.foodActionId === SHAKE_ACTION_ID ||
+        (wheyFromPlan != null && c.foodActionId === wheyFromPlan.id) ||
+        isWheyAction({ id: c.foodActionId, name: c.notes ?? '' })),
+  )
+
+  const promoteWheyRow = suggestWheyInChecklist || wheyAlreadyLogged
+
+  const syntheticWheyAction = useMemo((): FoodAction | null => {
+    if (!promoteWheyRow || wheyFromPlan) return null
+    return {
+      id: SHAKE_ACTION_ID,
+      name: 'Whey shake (suggested for today)',
+      dayOfWeek: null,
+      timeWindow: 'Supplements',
+      category: 'OPTIONAL',
+      sortOrder: 61,
+      notes: protein.suggestShakeForProtein
+        ? 'Suggested — helps close today’s protein gap. Log when you drink it.'
+        : 'Optional for calories/convenience — protein looks fine without it.',
+    }
+  }, [promoteWheyRow, wheyFromPlan, protein.suggestShakeForProtein])
+
+  const wheyChecklistAction = wheyFromPlan ?? syntheticWheyAction
+
+  const primaryActions = actions.filter((a) => a.category !== 'OPTIONAL')
+  const nightOptionals = actions.filter(
+    (a) => a.category === 'OPTIONAL' && a.timeWindow === 'Night',
+  )
+  const optionalExtras = actions.filter(
+    (a) =>
+      a.category === 'OPTIONAL' &&
+      a.timeWindow !== 'Night' &&
+      // Suggested / logged whey is promoted into the main checklist
+      !(promoteWheyRow && isWheyAction(a)),
+  )
+  const promotedWhey =
+    promoteWheyRow && wheyChecklistAction ? [wheyChecklistAction] : []
+
+  // Keep checked items in place so a mistaken tap can be unticked immediately
+  const listItems = showOptionalExtras
+    ? [...primaryActions, ...nightOptionals, ...promotedWhey, ...optionalExtras]
+    : [...primaryActions, ...nightOptionals, ...promotedWhey]
+
+  const remaining = primaryActions.filter((a) => !doneMap.get(a.id)?.completed)
+  const foodGroups = groupByTimeWindow(listItems)
+  const nextItem = remaining[0]
+  const nextWindow = nextItem
+    ? WINDOW_LABELS[nextItem.timeWindow] ?? nextItem.timeWindow
+    : null
+
+  const wheySuggestHint =
+    suggestWheyInChecklist && protein.suggestShakeForProtein
+      ? 'Suggested for protein — prepare a scoop when useful.'
+      : suggestWheyInChecklist && protein.suggestShakeForCalories
+        ? 'Protein OK — whey optional for calories/convenience.'
+        : null
 
   const fiberWarning =
     !!profile?.digestionMode || highFiberOptionalsDoneToday(actions, completions)
@@ -323,6 +371,17 @@ export function TodayScreen() {
         protein.sattuProteinCaveat
           ? 'protein_caveat'
           : protein.suggestCalorieTool
+            ? 'calories'
+            : 'convenience',
+      )
+      return
+    }
+
+    if (!currentlyDone && isWheyAction(action)) {
+      setShakeOpen(
+        protein.suggestShakeForProtein
+          ? 'protein'
+          : protein.suggestShakeForCalories
             ? 'calories'
             : 'convenience',
       )
@@ -665,6 +724,9 @@ export function TodayScreen() {
                 milkPowder={
                   !!a.allowsMilkPowderSub && !!profile?.milkPowderSubstitute
                 }
+                suggested={
+                  suggestWheyInChecklist && isWheyAction(a) ? wheySuggestHint : null
+                }
                 onToggle={() => toggle(a)}
               />
             ))}
@@ -672,15 +734,17 @@ export function TodayScreen() {
         </div>
       ))}
 
-      <button
-        className="btn btn-ghost btn-block"
-        style={{ marginTop: 8 }}
-        onClick={() => setShowOptionalExtras((v) => !v)}
-      >
-        {showOptionalExtras
-          ? 'Hide optional tools'
-          : `Optional tools (${optionalExtras.length}) — whey, sattu, snacks, etc.`}
-      </button>
+      {optionalExtras.length > 0 && (
+        <button
+          className="btn btn-ghost btn-block"
+          style={{ marginTop: 8 }}
+          onClick={() => setShowOptionalExtras((v) => !v)}
+        >
+          {showOptionalExtras
+            ? 'Hide optional tools'
+            : `Optional tools (${optionalExtras.length}) — sattu, snacks, etc.`}
+        </button>
+      )}
 
       <div className="card" style={{ marginTop: 14 }}>
         <div className="row-between small">
@@ -806,7 +870,7 @@ export function TodayScreen() {
           reason={shakeOpen}
           onCancel={() => setShakeOpen(null)}
           onSave={async ({ estimatedProtein, estimatedCarbs, estimatedCalories, breakdown, notes }) => {
-            const whey = actions.find((a) => /whey/i.test(a.name))
+            const whey = actions.find(isWheyAction) ?? wheyChecklistAction
             if (whey) {
               await writeCompletion(whey, true, {
                 logMode: 'APPROXIMATE',
@@ -816,6 +880,8 @@ export function TodayScreen() {
                 proteinBreakdown: breakdown,
                 notes,
               })
+              setPulseId(whey.id)
+              window.setTimeout(() => setPulseId(null), 420)
             } else {
               const now = new Date().toISOString()
               await db.completions.put({
@@ -872,6 +938,7 @@ function FoodRow({
   pulsing,
   detail,
   milkPowder,
+  suggested,
   onToggle,
 }: {
   action: FoodAction
@@ -880,12 +947,13 @@ function FoodRow({
   pulsing?: boolean
   detail?: import('../models/types').DailyCompletion
   milkPowder: boolean
+  suggested?: string | null
   onToggle: () => void
 }) {
   return (
     <button
       type="button"
-      className={`check-row ${catClass(action.category)}${done ? ' done' : ''}${collapsed ? ' collapsed' : ''}${pulsing ? ' just-checked' : ''}`}
+      className={`check-row ${catClass(action.category)}${done ? ' done' : ''}${collapsed ? ' collapsed' : ''}${pulsing ? ' just-checked' : ''}${suggested && !done ? ' suggested' : ''}`}
       onClick={onToggle}
     >
       <span className="check-box">{done ? '✓' : ''}</span>
@@ -895,9 +963,11 @@ function FoodRow({
           {action.category === 'SCHEDULED' && (
             <CategoryBadge category="SCHEDULED" />
           )}
+          {suggested && !done && <span className="chip chip-suggest">Suggested</span>}
         </span>
         {!collapsed && (
           <span className="check-sub">
+            {suggested && !done ? `${suggested} · ` : ''}
             {action.quantity
               ? `${action.quantity}${action.unit ? ` ${action.unit}` : ''} · `
               : ''}
