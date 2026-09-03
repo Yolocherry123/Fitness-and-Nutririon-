@@ -200,16 +200,21 @@ export function buildProteinChecklistSuggestions(input: {
     return dedupeSuggestions(out).slice(0, 2)
   }
 
-  let accountedProtein = out
-    .filter((s) => s.goal === 'logged')
-    .reduce((s, x) => s + x.estimatedProteinG, 0)
-  let accountedCarbs = out
-    .filter((s) => s.goal === 'logged')
-    .reduce((s, x) => s + (x.estimatedCarbsG ?? 0), 0)
+  // Only count newly suggested (not already-logged) foods toward closing the gap.
+  // Logged macros are already reflected in proteinGap / carbGap.
+  let accountedProtein = 0
+  let accountedCarbs = 0
 
   const pushFood = (s: ProteinChecklistSuggestion) => {
-    if (out.length >= 2) return false
     if (out.some((x) => x.action.id === s.action.id || x.kind === s.kind)) {
+      return false
+    }
+    const active = out.filter((x) => x.goal !== 'logged')
+    const foodActive = active.filter((x) => x.kind !== 'whey')
+    // Up to 2 food suggestions; whey may be a 3rd last-resort row.
+    if (s.kind === 'whey') {
+      if (active.length >= 3) return false
+    } else if (foodActive.length >= 2) {
       return false
     }
     out.push(s)
@@ -342,13 +347,13 @@ export function buildProteinChecklistSuggestions(input: {
   const wantWheyLastResort =
     !!profile?.usesWhey &&
     !wheyLogged &&
-    remainingProtein > 15 &&
+    remainingProtein > 12 &&
     foodExhausted &&
     (late ||
       protein.status === 'SIGNIFICANTLY_SHORT' ||
       protein.hour >= 16)
 
-  if (wantWheyLastResort && activeFood.length < 2) {
+  if (wantWheyLastResort) {
     const wheyG = settings?.wheyProteinPerServingG ?? DEFAULT_WHEY_PROTEIN_G
     pushFood({
       kind: 'whey',
@@ -363,7 +368,13 @@ export function buildProteinChecklistSuggestions(input: {
     })
   }
 
-  return dedupeSuggestions(out).slice(0, 2)
+  // Keep logged rows + up to 2 food suggestions + optional whey last resort.
+  const deduped = dedupeSuggestions(out)
+  const logged = deduped.filter((s) => s.goal === 'logged')
+  const active = deduped.filter((s) => s.goal !== 'logged')
+  const foods = active.filter((s) => s.kind !== 'whey').slice(0, 2)
+  const whey = active.find((s) => s.kind === 'whey')
+  return [...logged, ...foods, ...(whey ? [whey] : [])]
 }
 
 function dedupeSuggestions(
