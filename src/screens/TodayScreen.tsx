@@ -707,6 +707,18 @@ export function TodayScreen() {
         Today&apos;s food
       </div>
 
+      {optionalExtras.length > 0 && (
+        <button
+          className="btn btn-ghost btn-block"
+          style={{ marginTop: 4, marginBottom: 2 }}
+          onClick={() => setShowOptionalExtras((v) => !v)}
+        >
+          {showOptionalExtras
+            ? 'Hide optional tools'
+            : `Optional tools (${optionalExtras.length}) — sattu, snacks, etc.`}
+        </button>
+      )}
+
       {foodGroups.map((g) => (
         <div key={g.window}>
           <div className="small faint" style={{ margin: '10px 0 6px' }}>
@@ -737,18 +749,6 @@ export function TodayScreen() {
           </div>
         </div>
       ))}
-
-      {optionalExtras.length > 0 && (
-        <button
-          className="btn btn-ghost btn-block"
-          style={{ marginTop: 8 }}
-          onClick={() => setShowOptionalExtras((v) => !v)}
-        >
-          {showOptionalExtras
-            ? 'Hide optional tools'
-            : `Optional tools (${optionalExtras.length}) — sattu, snacks, etc.`}
-        </button>
-      )}
 
       <div className="card" style={{ marginTop: 14 }}>
         <div className="row-between small">
