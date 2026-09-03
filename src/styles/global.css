@@ -1216,6 +1216,34 @@ h3 {
   box-shadow: 1px 0 0 rgba(0, 0, 0, 0.25);
 }
 
+.macro-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 6px;
+}
+
+.macro-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.macro-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.macro-swatch.consumed {
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+}
+
 .macro-swatch.expected {
   background: repeating-linear-gradient(
     -45deg,
