@@ -48,27 +48,32 @@ export function ProteinAddOnModal({
       }
       onClose={onCancel}
       footer={
-        <button
-          type="button"
-          className="btn btn-primary btn-block"
-          onClick={() =>
-            onSave({
-              estimatedProtein: protein,
-              estimatedCarbs: carbs,
-              eggCount: count,
-              breakdown: [
-                {
-                  label: EGG_OPTIONS.find((o) => o.count === count)?.label ?? 'Eggs',
-                  grams: protein,
-                  source: 'APPROXIMATION',
-                },
-              ],
-              notes: `Eggs · ${count}`,
-            })
-          }
-        >
-          Log eggs
-        </button>
+        <>
+          <button
+            type="button"
+            className="btn btn-primary btn-block"
+            onClick={() =>
+              onSave({
+                estimatedProtein: protein,
+                estimatedCarbs: carbs,
+                eggCount: count,
+                breakdown: [
+                  {
+                    label: EGG_OPTIONS.find((o) => o.count === count)?.label ?? 'Eggs',
+                    grams: protein,
+                    source: 'APPROXIMATION',
+                  },
+                ],
+                notes: `Eggs · ${count}`,
+              })
+            }
+          >
+            Log eggs
+          </button>
+          <button type="button" className="btn btn-ghost btn-block" onClick={onCancel}>
+            Cancel
+          </button>
+        </>
       }
     >
       <div className="stack">
