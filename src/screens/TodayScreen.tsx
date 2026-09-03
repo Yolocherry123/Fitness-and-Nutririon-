@@ -5,6 +5,7 @@ import { CategoryBadge } from '../components/Badges'
 import { HeaderIconButton, useHeaderHints } from '../components/HeaderActions'
 import { IconBook, IconCheckIn, IconGear, IconScale } from '../components/Icons'
 import { MealProteinModal } from '../components/MealProteinModal'
+import { ProteinAddOnModal } from '../components/ProteinAddOnModal'
 import { ShakeLogModal } from '../components/ShakeLogModal'
 import { SattuLogModal } from '../components/SattuLogModal'
 import {
@@ -26,6 +27,11 @@ import {
   statusLabel,
   statusTone,
 } from '../engines/protein'
+import {
+  buildProteinChecklistSuggestions,
+  EGGS_ACTION_ID,
+  isEggsAddOnAction,
+} from '../engines/proteinSuggestions'
 import { useWorkoutDays } from '../hooks/useProgram'
 import {
   formatDisplayDate,
@@ -105,6 +111,8 @@ export function TodayScreen() {
   const [shakeOpen, setShakeOpen] = useState<'protein' | 'calories' | 'convenience' | null>(
     null,
   )
+  const [eggsOpen, setEggsOpen] = useState(false)
+  const [eggsDefaultCount, setEggsDefaultCount] = useState<1 | 2 | 3>(2)
   const [sattuOpen, setSattuOpen] = useState<
     'calories' | 'convenience' | 'protein_caveat' | null
   >(null)
@@ -161,46 +169,30 @@ export function TodayScreen() {
     [actions, completions, profile, settings, showGapCard, scores.consistencyPct],
   )
 
-  const wheyFromPlan = actions.find(isWheyAction)
-  const wheyAlreadyLogged = completions.some(
-    (c) =>
-      c.completed &&
-      (c.foodActionId === SHAKE_ACTION_ID ||
-        (wheyFromPlan != null && c.foodActionId === wheyFromPlan.id) ||
-        isWheyAction({ id: c.foodActionId, name: c.notes ?? '' })),
+  const proteinSuggestions = useMemo(
+    () =>
+      buildProteinChecklistSuggestions({
+        protein,
+        actions,
+        completions,
+        profile,
+        settings,
+      }),
+    [protein, actions, completions, profile, settings],
   )
 
-  // Promote when the engine recommends whey, OR when the day is already
-  // projected below the protein floor (so you can prepare even early).
-  const wheyProjectedUseful =
-    !!profile?.usesWhey &&
-    !wheyAlreadyLogged &&
-    protein.expectedDailyProtein < protein.minimumTarget
+  const suggestionById = useMemo(() => {
+    const map = new Map<string, (typeof proteinSuggestions)[number]>()
+    for (const s of proteinSuggestions) map.set(s.action.id, s)
+    return map
+  }, [proteinSuggestions])
 
-  const suggestWheyInChecklist =
-    !!profile?.usesWhey &&
-    (protein.suggestShakeForProtein ||
-      protein.suggestShakeForCalories ||
-      wheyProjectedUseful)
+  // Synthetic / plan rows to inject (night dairy stays in nightOptionals — badge only)
+  const promotedAddOns = proteinSuggestions
+    .filter((s) => s.kind === 'eggs' || s.kind === 'whey')
+    .map((s) => s.action)
 
-  const promoteWheyRow = suggestWheyInChecklist || wheyAlreadyLogged
-
-  const syntheticWheyAction = useMemo((): FoodAction | null => {
-    if (!promoteWheyRow || wheyFromPlan) return null
-    return {
-      id: SHAKE_ACTION_ID,
-      name: 'Whey shake (suggested for today)',
-      dayOfWeek: null,
-      timeWindow: 'Supplements',
-      category: 'OPTIONAL',
-      sortOrder: 61,
-      notes: protein.suggestShakeForProtein
-        ? 'Suggested — helps close today’s protein gap. Log when you drink it.'
-        : 'Keep ready if protein stays short after meals.',
-    }
-  }, [promoteWheyRow, wheyFromPlan, protein.suggestShakeForProtein])
-
-  const wheyChecklistAction = wheyFromPlan ?? syntheticWheyAction
+  const promotedIds = new Set(promotedAddOns.map((a) => a.id))
 
   const primaryActions = actions.filter((a) => a.category !== 'OPTIONAL')
   const nightOptionals = actions.filter(
@@ -210,16 +202,14 @@ export function TodayScreen() {
     (a) =>
       a.category === 'OPTIONAL' &&
       a.timeWindow !== 'Night' &&
-      // Suggested / logged whey is promoted into the main checklist
-      !(promoteWheyRow && isWheyAction(a)),
+      !promotedIds.has(a.id) &&
+      !isEggsAddOnAction(a),
   )
-  const promotedWhey =
-    promoteWheyRow && wheyChecklistAction ? [wheyChecklistAction] : []
 
   // Keep checked items in place so a mistaken tap can be unticked immediately
   const listItems = showOptionalExtras
-    ? [...primaryActions, ...nightOptionals, ...promotedWhey, ...optionalExtras]
-    : [...primaryActions, ...nightOptionals, ...promotedWhey]
+    ? [...primaryActions, ...nightOptionals, ...promotedAddOns, ...optionalExtras]
+    : [...primaryActions, ...nightOptionals, ...promotedAddOns]
 
   const remaining = primaryActions.filter((a) => !doneMap.get(a.id)?.completed)
   const foodGroups = groupByTimeWindow(listItems)
@@ -227,14 +217,6 @@ export function TodayScreen() {
   const nextWindow = nextItem
     ? WINDOW_LABELS[nextItem.timeWindow] ?? nextItem.timeWindow
     : null
-
-  const wheySuggestHint = protein.suggestShakeForProtein
-    ? 'Suggested for protein — prepare a scoop when useful.'
-    : protein.suggestShakeForCalories
-      ? 'Protein OK — whey optional for calories/convenience.'
-      : wheyProjectedUseful
-        ? 'Projected short after planned meals — keep whey ready.'
-        : null
 
   const fiberWarning =
     !!profile?.digestionMode || highFiberOptionalsDoneToday(actions, completions)
@@ -395,6 +377,13 @@ export function TodayScreen() {
             ? 'calories'
             : 'convenience',
       )
+      return
+    }
+
+    if (!currentlyDone && isEggsAddOnAction(action)) {
+      const count = /3/.test(action.name) ? 3 : /1\b/.test(action.name) ? 1 : 2
+      setEggsDefaultCount(count as 1 | 2 | 3)
+      setEggsOpen(true)
       return
     }
 
@@ -724,7 +713,13 @@ export function TodayScreen() {
             {WINDOW_LABELS[g.window] ?? g.window}
           </div>
           <div className="stack">
-            {g.items.map((a) => (
+            {g.items.map((a) => {
+              const suggestion = suggestionById.get(a.id)
+              const showSuggest =
+                !!suggestion &&
+                suggestion.hint !== 'Logged today.' &&
+                doneMap.get(a.id)?.completed !== true
+              return (
               <FoodRow
                 key={a.id}
                 action={a}
@@ -734,12 +729,11 @@ export function TodayScreen() {
                 milkPowder={
                   !!a.allowsMilkPowderSub && !!profile?.milkPowderSubstitute
                 }
-                suggested={
-                  suggestWheyInChecklist && isWheyAction(a) ? wheySuggestHint : null
-                }
+                suggested={showSuggest ? suggestion.hint : null}
                 onToggle={() => toggle(a)}
               />
-            ))}
+              )
+            })}
           </div>
         </div>
       ))}
@@ -880,35 +874,60 @@ export function TodayScreen() {
           reason={shakeOpen}
           onCancel={() => setShakeOpen(null)}
           onSave={async ({ estimatedProtein, estimatedCarbs, estimatedCalories, breakdown, notes }) => {
-            const whey = actions.find(isWheyAction) ?? wheyChecklistAction
-            if (whey) {
-              await writeCompletion(whey, true, {
-                logMode: 'APPROXIMATE',
-                estimatedProtein,
-                estimatedCarbs,
-                estimatedCalories,
-                proteinBreakdown: breakdown,
-                notes,
-              })
-              setPulseId(whey.id)
-              window.setTimeout(() => setPulseId(null), 420)
-            } else {
-              const now = new Date().toISOString()
-              await db.completions.put({
-                id: `${date}:${SHAKE_ACTION_ID}`,
-                date,
-                foodActionId: SHAKE_ACTION_ID,
-                completed: true,
-                logMode: 'APPROXIMATE',
-                estimatedProtein,
-                estimatedCarbs,
-                estimatedCalories,
-                proteinBreakdown: breakdown,
-                notes,
-                updatedAt: now,
-              })
-            }
+            const whey =
+              actions.find(isWheyAction) ??
+              proteinSuggestions.find((s) => s.kind === 'whey')?.action ??
+              ({
+                id: SHAKE_ACTION_ID,
+                name: 'Whey shake (suggested for today)',
+                dayOfWeek: null,
+                timeWindow: 'Supplements',
+                category: 'OPTIONAL' as const,
+                sortOrder: 61,
+              } satisfies FoodAction)
+            await writeCompletion(whey, true, {
+              logMode: 'APPROXIMATE',
+              estimatedProtein,
+              estimatedCarbs,
+              estimatedCalories,
+              proteinBreakdown: breakdown,
+              notes,
+            })
+            setPulseId(whey.id)
+            window.setTimeout(() => setPulseId(null), 420)
             setShakeOpen(null)
+          }}
+        />
+      )}
+
+      {eggsOpen && (
+        <ProteinAddOnModal
+          title="Add eggs"
+          initialCount={eggsDefaultCount}
+          onCancel={() => setEggsOpen(false)}
+          onSave={async ({ estimatedProtein, estimatedCarbs, breakdown, notes, eggCount }) => {
+            const eggsAction: FoodAction = {
+              id: EGGS_ACTION_ID,
+              name: `Add eggs (${eggCount})`,
+              dayOfWeek: null,
+              timeWindow: 'Afternoon',
+              category: 'OPTIONAL',
+              sortOrder: 49,
+              quantity: `${eggCount}`,
+              unit: eggCount === 1 ? 'egg' : 'eggs',
+              estimatedProteinG: estimatedProtein,
+              notes,
+            }
+            await writeCompletion(eggsAction, true, {
+              logMode: 'APPROXIMATE',
+              estimatedProtein,
+              estimatedCarbs,
+              proteinBreakdown: breakdown,
+              notes,
+            })
+            setPulseId(EGGS_ACTION_ID)
+            window.setTimeout(() => setPulseId(null), 420)
+            setEggsOpen(false)
           }}
         />
       )}
