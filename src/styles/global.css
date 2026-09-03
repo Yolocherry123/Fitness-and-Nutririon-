@@ -16,6 +16,8 @@
   --accent: #7cb89a;
   --accent-strong: #5fa07d;
   --accent-soft: rgba(124, 184, 154, 0.16);
+  --glow-a: rgba(124, 184, 154, 0.12);
+  --glow-b: rgba(212, 165, 116, 0.08);
   --warm: #d4a574;
   --warm-soft: rgba(212, 165, 116, 0.15);
   --danger: #e07a6a;
@@ -66,13 +68,17 @@ body,
 body {
   font-family: var(--font-body);
   background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(124, 184, 154, 0.12), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(212, 165, 116, 0.08), transparent 50%),
+    radial-gradient(1200px 600px at 10% -10%, var(--glow-a), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, var(--glow-b), transparent 50%),
     linear-gradient(180deg, var(--bg0), var(--bg1) 40%, #0a110e);
+  background-attachment: fixed;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   line-height: 1.4;
   touch-action: manipulation;
+  transition:
+    background-color 0.55s ease,
+    color 0.35s ease;
 }
 
 button,
@@ -700,6 +706,22 @@ h3 {
   text-align: center;
   cursor: pointer;
   color: inherit;
+  position: relative;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.day-chip::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin: 0 auto 6px;
+  background: var(--day-accent, var(--accent));
+  opacity: 0.9;
 }
 
 .day-chip .day-abbr {
@@ -715,13 +737,15 @@ h3 {
 
 .day-chip.active,
 .day-chip.today {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--day-accent, var(--accent));
+  background: color-mix(in srgb, var(--day-accent, var(--accent)) 16%, transparent);
 }
 
 .day-chip.selected {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--day-accent, var(--accent));
   outline-offset: 1px;
+  border-color: var(--day-accent, var(--accent));
+  background: color-mix(in srgb, var(--day-accent, var(--accent)) 18%, transparent);
 }
 
 .tip-banner {
@@ -1159,4 +1183,41 @@ h3 {
     width: 38px;
     min-height: 38px;
   }
+}
+
+/* ---- Day-of-week color identity ---- */
+.day-tint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.day-tint-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-soft);
+  flex-shrink: 0;
+  animation: dayPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes dayPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.75;
+  }
+}
+
+.day-tint-label {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
