@@ -1180,21 +1180,66 @@ h3 {
 }
 
 .macro-track {
+  position: relative;
   margin-top: 7px;
-  height: 12px;
+  height: 14px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--border-strong);
   overflow: hidden;
 }
 
-.macro-track > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+.macro-seg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
   min-width: 0;
+  border-radius: inherit;
   transition: width 0.35s ease;
+}
+
+.macro-seg.expected {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.macro-seg.consumed {
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+  z-index: 1;
+}
+
+.macro-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 6px;
+}
+
+.macro-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.macro-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.macro-swatch.consumed {
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+}
+
+.macro-swatch.expected {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .macro-summary {
