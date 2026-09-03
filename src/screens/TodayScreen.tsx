@@ -161,10 +161,6 @@ export function TodayScreen() {
     [actions, completions, profile, settings, showGapCard, scores.consistencyPct],
   )
 
-  const suggestWheyInChecklist =
-    !!profile?.usesWhey &&
-    (protein.suggestShakeForProtein || protein.suggestShakeForCalories)
-
   const wheyFromPlan = actions.find(isWheyAction)
   const wheyAlreadyLogged = completions.some(
     (c) =>
@@ -173,6 +169,19 @@ export function TodayScreen() {
         (wheyFromPlan != null && c.foodActionId === wheyFromPlan.id) ||
         isWheyAction({ id: c.foodActionId, name: c.notes ?? '' })),
   )
+
+  // Promote when the engine recommends whey, OR when the day is already
+  // projected below the protein floor (so you can prepare even early).
+  const wheyProjectedUseful =
+    !!profile?.usesWhey &&
+    !wheyAlreadyLogged &&
+    protein.expectedDailyProtein < protein.minimumTarget
+
+  const suggestWheyInChecklist =
+    !!profile?.usesWhey &&
+    (protein.suggestShakeForProtein ||
+      protein.suggestShakeForCalories ||
+      wheyProjectedUseful)
 
   const promoteWheyRow = suggestWheyInChecklist || wheyAlreadyLogged
 
@@ -187,7 +196,7 @@ export function TodayScreen() {
       sortOrder: 61,
       notes: protein.suggestShakeForProtein
         ? 'Suggested — helps close today’s protein gap. Log when you drink it.'
-        : 'Optional for calories/convenience — protein looks fine without it.',
+        : 'Keep ready if protein stays short after meals.',
     }
   }, [promoteWheyRow, wheyFromPlan, protein.suggestShakeForProtein])
 
@@ -219,11 +228,12 @@ export function TodayScreen() {
     ? WINDOW_LABELS[nextItem.timeWindow] ?? nextItem.timeWindow
     : null
 
-  const wheySuggestHint =
-    suggestWheyInChecklist && protein.suggestShakeForProtein
-      ? 'Suggested for protein — prepare a scoop when useful.'
-      : suggestWheyInChecklist && protein.suggestShakeForCalories
-        ? 'Protein OK — whey optional for calories/convenience.'
+  const wheySuggestHint = protein.suggestShakeForProtein
+    ? 'Suggested for protein — prepare a scoop when useful.'
+    : protein.suggestShakeForCalories
+      ? 'Protein OK — whey optional for calories/convenience.'
+      : wheyProjectedUseful
+        ? 'Projected short after planned meals — keep whey ready.'
         : null
 
   const fiberWarning =
