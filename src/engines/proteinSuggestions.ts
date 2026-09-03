@@ -4,8 +4,11 @@ import type {
   FoodAction,
   UserProfile,
 } from '../models/types'
+import { SATTU_ACTION_ID } from '../models/types'
 import {
   DEFAULT_WHEY_PROTEIN_G,
+  defaultCarbsForActionName,
+  defaultProteinForActionName,
   proteinForSource,
 } from '../lib/proteinDb'
 import { isWheyAction } from './logic'
@@ -13,13 +16,20 @@ import type { ProteinSummary } from './protein'
 
 export const EGGS_ACTION_ID = 'protein-addon-eggs'
 
-export type ProteinSuggestionKind = 'eggs' | 'night_dairy' | 'whey'
+export type GapSuggestionKind =
+  | 'eggs'
+  | 'sattu'
+  | 'banana'
+  | 'night_dairy'
+  | 'whey'
 
 export interface ProteinChecklistSuggestion {
-  kind: ProteinSuggestionKind
+  kind: GapSuggestionKind
   action: FoodAction
   hint: string
   estimatedProteinG: number
+  estimatedCarbsG?: number
+  goal: 'protein' | 'carbs' | 'calories' | 'logged'
 }
 
 export function isEggsAddOnAction(
@@ -36,13 +46,23 @@ export function isNightDairyAction(action: Pick<FoodAction, 'name'>): boolean {
   return /night milk|curd/i.test(action.name)
 }
 
+export function isSattuFoodAction(
+  action: Pick<FoodAction, 'id' | 'name'>,
+): boolean {
+  return action.id === SATTU_ACTION_ID || /sattu/i.test(action.name)
+}
+
+export function isBananaFoodAction(action: Pick<FoodAction, 'name'>): boolean {
+  return /banana/i.test(action.name) && !/pre-workout/i.test(action.name)
+}
+
 function eggCountForGap(gap: number): 1 | 2 | 3 {
   if (gap <= 9) return 1
   if (gap <= 16) return 2
   return 3
 }
 
-function syntheticEggsAction(count: 1 | 2 | 3, _hint: string): FoodAction {
+function syntheticEggsAction(count: 1 | 2 | 3): FoodAction {
   const grams = proteinForSource(
     count === 1 ? 'eggs_1' : count === 2 ? 'eggs_2' : 'eggs_3',
   )
@@ -56,14 +76,15 @@ function syntheticEggsAction(count: 1 | 2 | 3, _hint: string): FoodAction {
     quantity: `${count}`,
     unit: count === 1 ? 'egg' : 'eggs',
     estimatedProteinG: grams,
-    notes: 'Convenient food protein — not required daily. Log when you eat them.',
+    notes:
+      'Convenient food protein — prefer this before whey. Log when you eat them.',
   }
 }
 
 function syntheticWheyAction(hint: string): FoodAction {
   return {
     id: 'shake-extra',
-    name: 'Whey shake (suggested for today)',
+    name: 'Whey shake (last resort)',
     dayOfWeek: null,
     timeWindow: 'Supplements',
     category: 'OPTIONAL',
@@ -74,8 +95,9 @@ function syntheticWheyAction(hint: string): FoodAction {
 }
 
 /**
- * Food-first protein add-ons for the Today checklist.
- * At most two suggestions: one convenient food source, then whey if still useful.
+ * Gap-fill checklist suggestions.
+ * Prefer real food optionals (eggs, sattu, banana, night dairy). Whey is last resort.
+ * At most two active suggestions.
  */
 export function buildProteinChecklistSuggestions(input: {
   protein: ProteinSummary
@@ -99,111 +121,246 @@ export function buildProteinChecklistSuggestions(input: {
         isWheyAction({ id: c.foodActionId, name: c.notes ?? '' }),
     )
   const eggsLogged = doneIds.has(EGGS_ACTION_ID)
+  const sattuAction = actions.find(isSattuFoodAction)
+  const sattuLogged =
+    (!!sattuAction && doneIds.has(sattuAction.id)) ||
+    doneIds.has(SATTU_ACTION_ID) ||
+    doneIds.has('sattu-extra')
+  const bananaAction = actions.find(isBananaFoodAction)
+  const bananaLogged = bananaAction ? doneIds.has(bananaAction.id) : false
   const nightDairy = actions.find(isNightDairyAction)
   const nightDairyDone = nightDairy ? doneIds.has(nightDairy.id) : true
 
-  const gap = Math.max(
+  const proteinGap = Math.max(
     0,
     Math.round((protein.minimumTarget - protein.expectedDailyProtein) * 10) /
       10,
   )
-  const projectedShort = gap > 0
+  const carbGap = Math.max(0, protein.carbGap)
+  const projectedProteinShort = proteinGap > 0
+  const carbOrCalShort =
+    carbGap > 30 ||
+    protein.suggestCalorieTool ||
+    protein.suggestShakeForCalories
   const late = protein.hour >= 19
   const out: ProteinChecklistSuggestion[] = []
 
-  // Keep completed add-ons visible so they can be unticked.
-  let foodProtein = 0
+  // Keep completed gap-fill rows visible for untick.
   if (eggsLogged) {
     const existing = completions.find(
       (c) => c.foodActionId === EGGS_ACTION_ID && c.completed,
     )
     const grams = existing?.estimatedProtein ?? 12
-    foodProtein = grams
     out.push({
       kind: 'eggs',
-      action: syntheticEggsAction(
-        grams >= 17 ? 3 : grams >= 11 ? 2 : 1,
-        'Logged today.',
-      ),
+      action: syntheticEggsAction(grams >= 17 ? 3 : grams >= 11 ? 2 : 1),
       hint: 'Logged today.',
       estimatedProteinG: grams,
+      goal: 'logged',
+    })
+  }
+  if (sattuLogged && sattuAction) {
+    out.push({
+      kind: 'sattu',
+      action: sattuAction,
+      hint: 'Logged today.',
+      estimatedProteinG:
+        settings?.sattuProteinPerServingG ??
+        defaultProteinForActionName(sattuAction.name) ??
+        12,
+      estimatedCarbsG:
+        settings?.sattuCarbsPerServingG ??
+        defaultCarbsForActionName(sattuAction.name) ??
+        22,
+      goal: 'logged',
+    })
+  }
+  if (bananaLogged && bananaAction) {
+    out.push({
+      kind: 'banana',
+      action: bananaAction,
+      hint: 'Logged today.',
+      estimatedProteinG: defaultProteinForActionName(bananaAction.name) ?? 1,
+      estimatedCarbsG: defaultCarbsForActionName(bananaAction.name) ?? 25,
+      goal: 'logged',
     })
   }
   if (wheyLogged) {
-    const wheyAction = wheyFromPlan ?? syntheticWheyAction('Logged today.')
     out.push({
       kind: 'whey',
-      action: wheyAction,
+      action: wheyFromPlan ?? syntheticWheyAction('Logged today.'),
       hint: 'Logged today.',
       estimatedProteinG:
         settings?.wheyProteinPerServingG ?? DEFAULT_WHEY_PROTEIN_G,
+      goal: 'logged',
     })
   }
 
-  if (!projectedShort && !protein.suggestShakeForCalories) {
+  if (!projectedProteinShort && !carbOrCalShort) {
     return dedupeSuggestions(out).slice(0, 2)
   }
 
-  // --- Food-first suggestion (skip if eggs already logged) ---
-  if (!eggsLogged && projectedShort) {
-    if (late && nightDairy && !nightDairyDone) {
-      const dairyG = defaultNightDairyProtein(nightDairy)
-      out.push({
-        kind: 'night_dairy',
-        action: nightDairy,
-        hint: `Suggested for protein — ~${dairyG}g if dinner was light.`,
-        estimatedProteinG: dairyG,
-      })
-      foodProtein = Math.max(foodProtein, dairyG)
-    } else {
-      const count = eggCountForGap(gap)
-      const grams = proteinForSource(
-        count === 1 ? 'eggs_1' : count === 2 ? 'eggs_2' : 'eggs_3',
-      )
-      const hint =
-        protein.status === 'EARLY_DAY' || protein.foodFirst
-          ? `Projected short after planned meals — keep ~${grams}g from eggs ready.`
-          : `Suggested for protein — ~${grams}g convenient food add-on.`
-      out.push({
-        kind: 'eggs',
-        action: syntheticEggsAction(count, hint),
-        hint,
-        estimatedProteinG: grams,
-      })
-      foodProtein = Math.max(foodProtein, grams)
+  let accountedProtein = out
+    .filter((s) => s.goal === 'logged')
+    .reduce((s, x) => s + x.estimatedProteinG, 0)
+  let accountedCarbs = out
+    .filter((s) => s.goal === 'logged')
+    .reduce((s, x) => s + (x.estimatedCarbsG ?? 0), 0)
+
+  const pushFood = (s: ProteinChecklistSuggestion) => {
+    if (out.length >= 2) return false
+    if (out.some((x) => x.action.id === s.action.id || x.kind === s.kind)) {
+      return false
+    }
+    out.push(s)
+    accountedProtein += s.estimatedProteinG
+    accountedCarbs += s.estimatedCarbsG ?? 0
+    return true
+  }
+
+  // 1) Protein food first — eggs
+  if (projectedProteinShort && !eggsLogged) {
+    const remainingP = proteinGap - accountedProtein
+    if (remainingP > 0) {
+      if (late && nightDairy && !nightDairyDone) {
+        const dairyG =
+          nightDairy.estimatedProteinG ?? proteinForSource('milk', 'normal')
+        pushFood({
+          kind: 'night_dairy',
+          action: nightDairy,
+          hint: `Suggested for protein — ~${dairyG}g from milk/curd before whey.`,
+          estimatedProteinG: dairyG,
+          estimatedCarbsG: defaultCarbsForActionName(nightDairy.name) ?? 12,
+          goal: 'protein',
+        })
+      } else {
+        const count = eggCountForGap(remainingP)
+        const grams = proteinForSource(
+          count === 1 ? 'eggs_1' : count === 2 ? 'eggs_2' : 'eggs_3',
+        )
+        pushFood({
+          kind: 'eggs',
+          action: syntheticEggsAction(count),
+          hint: `Suggested for protein — ~${grams}g from eggs (before whey).`,
+          estimatedProteinG: grams,
+          goal: 'protein',
+        })
+      }
     }
   }
 
-  // --- Whey only if still useful after food (or calorie path) ---
+  // 2) Sattu — helps protein a bit + carbs/calories
   if (
-    profile?.usesWhey &&
-    !wheyLogged &&
-    !out.some((s) => s.kind === 'whey')
+    !sattuLogged &&
+    sattuAction &&
+    (projectedProteinShort || carbOrCalShort)
   ) {
-    const remainingAfterFood = gap - foodProtein
-    const wheyG = settings?.wheyProteinPerServingG ?? DEFAULT_WHEY_PROTEIN_G
-    const wantWheyForProtein =
-      protein.suggestShakeForProtein ||
-      remainingAfterFood > 10 ||
-      (projectedShort && foodProtein === 0)
-    const wantWheyForCalories = protein.suggestShakeForCalories
-
-    if (wantWheyForProtein || wantWheyForCalories) {
-      const hint =
-        wantWheyForCalories && !wantWheyForProtein
-          ? 'Protein OK — whey optional for calories/convenience.'
-          : remainingAfterFood > 10 && foodProtein > 0
-            ? `Food helps, but ~${Math.round(remainingAfterFood)}g may remain — whey closes it.`
-            : protein.suggestShakeForProtein
-              ? 'Suggested for protein — prepare a scoop when useful.'
-              : 'Projected short after planned meals — keep whey ready.'
-      out.push({
-        kind: 'whey',
-        action: wheyFromPlan ?? syntheticWheyAction(hint),
-        hint,
-        estimatedProteinG: wheyG,
+    const sattuP =
+      settings?.sattuProteinPerServingG ??
+      defaultProteinForActionName(sattuAction.name) ??
+      12
+    const sattuC =
+      settings?.sattuCarbsPerServingG ??
+      defaultCarbsForActionName(sattuAction.name) ??
+      22
+    const stillNeedP = proteinGap - accountedProtein > 5
+    const stillNeedC = carbGap - accountedCarbs > 20 || carbOrCalShort
+    if (stillNeedP || stillNeedC) {
+      const goal: ProteinChecklistSuggestion['goal'] = stillNeedP
+        ? 'protein'
+        : stillNeedC && carbGap > 20
+          ? 'carbs'
+          : 'calories'
+      pushFood({
+        kind: 'sattu',
+        action: sattuAction,
+        hint:
+          goal === 'protein'
+            ? `Suggested — sattu adds ~${sattuP}g protein + carbs before whey.`
+            : goal === 'carbs'
+              ? `Suggested for carbs — ~${sattuC}g from sattu.`
+              : 'Suggested for calories — convenient food tool before whey.',
+        estimatedProteinG: sattuP,
+        estimatedCarbsG: sattuC,
+        goal,
       })
     }
+  }
+
+  // 3) Banana — carbs / calories (not a protein fix)
+  if (
+    !bananaLogged &&
+    bananaAction &&
+    carbOrCalShort &&
+    !projectedProteinShort
+  ) {
+    const carbs = defaultCarbsForActionName(bananaAction.name) ?? 25
+    pushFood({
+      kind: 'banana',
+      action: bananaAction,
+      hint: `Suggested for carbs/calories — ~${carbs}g carbs.`,
+      estimatedProteinG: 1,
+      estimatedCarbsG: carbs,
+      goal: carbGap > 20 ? 'carbs' : 'calories',
+    })
+  }
+
+  // If still carb/cal short and we only filled protein eggs, try banana as 2nd
+  if (
+    !bananaLogged &&
+    bananaAction &&
+    carbOrCalShort &&
+    out.filter((s) => s.goal !== 'logged').length < 2
+  ) {
+    const already = out.some((s) => s.kind === 'banana')
+    if (!already) {
+      const carbs = defaultCarbsForActionName(bananaAction.name) ?? 25
+      pushFood({
+        kind: 'banana',
+        action: bananaAction,
+        hint: `Suggested for carbs/calories — ~${carbs}g carbs.`,
+        estimatedProteinG: 1,
+        estimatedCarbsG: carbs,
+        goal: carbGap > 20 ? 'carbs' : 'calories',
+      })
+    }
+  }
+
+  // 4) Whey LAST RESORT — only if food cannot close a large protein gap
+  const remainingProtein = proteinGap - accountedProtein
+  const activeFood = out.filter(
+    (s) => s.goal !== 'logged' && s.kind !== 'whey',
+  )
+  const triedEggsOrDairy =
+    eggsLogged ||
+    activeFood.some((s) => s.kind === 'eggs' || s.kind === 'night_dairy')
+  const triedSattu =
+    sattuLogged || !sattuAction || activeFood.some((s) => s.kind === 'sattu')
+  const foodExhausted =
+    activeFood.length >= 2 || (triedEggsOrDairy && triedSattu)
+
+  const wantWheyLastResort =
+    !!profile?.usesWhey &&
+    !wheyLogged &&
+    remainingProtein > 15 &&
+    foodExhausted &&
+    (late ||
+      protein.status === 'SIGNIFICANTLY_SHORT' ||
+      protein.hour >= 16)
+
+  if (wantWheyLastResort && activeFood.length < 2) {
+    const wheyG = settings?.wheyProteinPerServingG ?? DEFAULT_WHEY_PROTEIN_G
+    pushFood({
+      kind: 'whey',
+      action:
+        wheyFromPlan ??
+        syntheticWheyAction(
+          `Last resort — ~${Math.round(remainingProtein)}g protein still short after food options.`,
+        ),
+      hint: `Last resort — try food first; whey closes ~${wheyG}g if needed.`,
+      estimatedProteinG: wheyG,
+      goal: 'protein',
+    })
   }
 
   return dedupeSuggestions(out).slice(0, 2)
@@ -220,9 +377,4 @@ function dedupeSuggestions(
     deduped.push(s)
   }
   return deduped
-}
-
-function defaultNightDairyProtein(action: FoodAction): number {
-  if (action.estimatedProteinG != null) return action.estimatedProteinG
-  return proteinForSource('milk', 'normal')
 }

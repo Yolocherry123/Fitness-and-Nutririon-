@@ -24,11 +24,11 @@ export function CalorieToolPickerModal({
 }) {
   return (
     <Modal
-      title="Add calories"
+      title="Add food"
       subtitle={
         <>
-          Your calorie intake appears lower than planned. Choose <strong>one</strong>{' '}
-          convenient addition — do not stack everything.
+          Prefer food tools before whey. Choose <strong>one</strong> convenient
+          addition — do not stack everything.
         </>
       }
       onClose={onCancel}

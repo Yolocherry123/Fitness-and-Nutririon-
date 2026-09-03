@@ -189,7 +189,13 @@ export function TodayScreen() {
 
   // Synthetic / plan rows to inject (night dairy stays in nightOptionals — badge only)
   const promotedAddOns = proteinSuggestions
-    .filter((s) => s.kind === 'eggs' || s.kind === 'whey')
+    .filter(
+      (s) =>
+        s.kind === 'eggs' ||
+        s.kind === 'whey' ||
+        s.kind === 'sattu' ||
+        s.kind === 'banana',
+    )
     .map((s) => s.action)
 
   const promotedIds = new Set(promotedAddOns.map((a) => a.id))
@@ -606,9 +612,23 @@ export function TodayScreen() {
       </div>
 
       <div className={`card protein-card tone-${statusTone(protein.status)}`} style={{ marginTop: 10 }}>
-        <div className="row-between" style={{ marginBottom: 6 }}>
+        <div className="row-between" style={{ marginBottom: 6, gap: 8 }}>
           <strong style={{ fontSize: '0.92rem' }}>Macros</strong>
-          <span className="chip">{statusLabel(protein.status)}</span>
+          <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+            {optionalExtras.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '4px 8px' }}
+                onClick={() => setShowOptionalExtras((v) => !v)}
+              >
+                {showOptionalExtras
+                  ? 'Hide tools'
+                  : `Tools (${optionalExtras.length})`}
+              </button>
+            )}
+            <span className="chip">{statusLabel(protein.status)}</span>
+          </div>
         </div>
         <div className="macro-grid">
           <div>
@@ -639,29 +659,32 @@ export function TodayScreen() {
           </p>
         )}
         <div className="row macro-actions" style={{ gap: 6, marginTop: 6 }}>
-          {protein.suggestCalorieTool && (
+          {(protein.suggestCalorieTool ||
+            proteinSuggestions.some(
+              (s) =>
+                s.goal !== 'logged' &&
+                (s.goal === 'carbs' || s.goal === 'calories' || s.kind === 'sattu'),
+            )) && (
             <button
               type="button"
               className="btn btn-secondary btn-sm"
               style={{ flex: 1 }}
               onClick={() => setCaloriePickerOpen(true)}
             >
-              Add calories
+              Add food
             </button>
           )}
-          {(protein.suggestShakeForProtein || protein.suggestShakeForCalories) &&
+          {proteinSuggestions.some(
+            (s) => s.kind === 'whey' && s.goal !== 'logged',
+          ) &&
             profile?.usesWhey && (
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className="btn btn-ghost btn-sm"
                 style={{ flex: 1 }}
-                onClick={() =>
-                  setShakeOpen(
-                    protein.suggestShakeForProtein ? 'protein' : 'calories',
-                  )
-                }
+                onClick={() => setShakeOpen('protein')}
               >
-                Add shake
+                Whey (last)
               </button>
             )}
           <button
@@ -706,18 +729,6 @@ export function TodayScreen() {
       <div className="section-label" style={{ marginTop: 4 }}>
         Today&apos;s food
       </div>
-
-      {optionalExtras.length > 0 && (
-        <button
-          className="btn btn-ghost btn-block"
-          style={{ marginTop: 4, marginBottom: 2 }}
-          onClick={() => setShowOptionalExtras((v) => !v)}
-        >
-          {showOptionalExtras
-            ? 'Hide optional tools'
-            : `Optional tools (${optionalExtras.length}) — sattu, snacks, etc.`}
-        </button>
-      )}
 
       {foodGroups.map((g) => (
         <div key={g.window}>
