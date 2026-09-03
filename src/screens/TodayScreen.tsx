@@ -40,6 +40,7 @@ import {
   dayOfWeekFromDate,
 } from '../lib/dates'
 import { foodActionsForDate, groupByTimeWindow, highFiberOptionalsDoneToday, WINDOW_LABELS } from '../lib/food'
+import { themeForDay } from '../lib/dayTheme'
 import { chickenProteinEstimate, defaultCarbsForActionName, defaultProteinForActionName } from '../lib/proteinDb'
 import type { ActionCategory, ChickenMeasureType, DigestionStatus, FoodAction } from '../models/types'
 import { SATTU_ACTION_ID } from '../models/types'
@@ -168,6 +169,8 @@ export function TodayScreen() {
       }),
     [actions, completions, profile, settings, showGapCard, scores.consistencyPct],
   )
+
+  const dayTheme = themeForDay(day)
 
   const proteinSuggestions = useMemo(
     () =>
@@ -476,6 +479,12 @@ export function TodayScreen() {
           <div className="brand">Forge</div>
           <h1 className="page-title">{greetingForHour()}</h1>
           <p className="hero-status">{formatDisplayDate(date)}</p>
+          <div className="day-tint" aria-label={`${dayTheme.label} theme`}>
+            <span className="day-tint-dot" />
+            <span className="day-tint-label">
+              {dayTheme.label} · {dayTheme.mood}
+            </span>
+          </div>
         </div>
         <div className="header-actions">
           <HeaderIconButton

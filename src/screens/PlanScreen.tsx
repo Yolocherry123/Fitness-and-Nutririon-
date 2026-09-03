@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { CategoryBadge } from '../components/Badges'
 import { db } from '../db'
@@ -14,6 +14,7 @@ import {
   datesInWeek,
 } from '../lib/dates'
 import { foodActionsForDay, groupByTimeWindow, WINDOW_LABELS } from '../lib/food'
+import { themeForDay } from '../lib/dayTheme'
 import type { DayOfWeek, FoodAction, UserProfile, WorkoutDayType } from '../models/types'
 import { DAYS } from '../models/types'
 
@@ -102,6 +103,11 @@ export function PlanScreen() {
                   key={day}
                   type="button"
                   className={`day-chip${isToday ? ' today' : ''}${selected === day ? ' selected' : ''}`}
+                  style={
+                    {
+                      '--day-accent': themeForDay(day).accent,
+                    } as CSSProperties
+                  }
                   onClick={() => setSelected(day)}
                 >
                   <div className="day-abbr">{ABBR[day]}</div>

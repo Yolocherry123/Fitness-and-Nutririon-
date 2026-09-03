@@ -5,6 +5,8 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { BottomNav } from './components/BottomNav'
 import { ReminderHost } from './components/ReminderHost'
 import { ensureSeeded, db } from './db'
+import { applyDayTheme } from './lib/dayTheme'
+import { dayOfWeekFromDate, todayISO } from './lib/dates'
 import { OnboardingScreen } from './screens/OnboardingScreen'
 import { TodayScreen } from './screens/TodayScreen'
 import { PlanScreen } from './screens/PlanScreen'
@@ -16,6 +18,22 @@ import { ProgramEditorScreen } from './screens/ProgramEditorScreen'
 import { FoodPlanEditorScreen } from './screens/FoodPlanEditorScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { DataScreen } from './screens/DataScreen'
+
+function useDayTheme() {
+  useEffect(() => {
+    const tick = () => applyDayTheme(dayOfWeekFromDate(todayISO()))
+    tick()
+    const id = window.setInterval(tick, 60_000)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tick()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
+}
 
 function AppRoutes() {
   const profile = useLiveQuery(() => db.profile.get('user'))
@@ -60,6 +78,7 @@ function AppRoutes() {
 
 export default function App() {
   const [ready, setReady] = useState(false)
+  useDayTheme()
 
   useEffect(() => {
     ensureSeeded()
