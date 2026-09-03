@@ -1200,46 +1200,31 @@ h3 {
 }
 
 .macro-seg.expected {
-  background: color-mix(in srgb, var(--accent) 38%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--accent) 55%, transparent),
+    color-mix(in srgb, var(--accent) 55%, transparent) 4px,
+    color-mix(in srgb, var(--accent) 28%, transparent) 4px,
+    color-mix(in srgb, var(--accent) 28%, transparent) 8px
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .macro-seg.consumed {
   background: linear-gradient(90deg, var(--accent-strong), var(--accent));
   z-index: 1;
-}
-
-.macro-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  margin-top: 6px;
-}
-
-.macro-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.macro-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  flex-shrink: 0;
-  display: inline-block;
-}
-
-.macro-swatch.consumed {
-  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.25);
 }
 
 .macro-swatch.expected {
-  background: color-mix(in srgb, var(--accent) 38%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--accent) 55%, transparent),
+    color-mix(in srgb, var(--accent) 55%, transparent) 2px,
+    color-mix(in srgb, var(--accent) 28%, transparent) 2px,
+    color-mix(in srgb, var(--accent) 28%, transparent) 4px
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .macro-summary {
