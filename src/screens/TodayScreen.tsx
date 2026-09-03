@@ -654,6 +654,17 @@ export function TodayScreen() {
               <span className="muted">→ {protein.expectedDailyProtein}</span>
               <span className="faint">/ {protein.targetProtein}g</span>
             </div>
+            <div
+              className="macro-track"
+              aria-hidden
+              title={`${protein.expectedDailyProtein} of ${protein.targetProtein}g`}
+            >
+              <span
+                style={{
+                  width: `${Math.min(100, Math.round((protein.expectedDailyProtein / Math.max(1, protein.targetProtein)) * 100))}%`,
+                }}
+              />
+            </div>
           </div>
           <div>
             <div className="macro-label">Carbs</div>
@@ -662,6 +673,17 @@ export function TodayScreen() {
               <span className="muted">+{protein.expectedRemainingCarbs}</span>
               <span className="muted">→ {protein.expectedDailyCarbs}</span>
               <span className="faint">/ {protein.carbTarget}g</span>
+            </div>
+            <div
+              className="macro-track"
+              aria-hidden
+              title={`${protein.expectedDailyCarbs} of ${protein.carbTarget}g`}
+            >
+              <span
+                style={{
+                  width: `${Math.min(100, Math.round((protein.expectedDailyCarbs / Math.max(1, protein.carbTarget)) * 100))}%`,
+                }}
+              />
             </div>
           </div>
         </div>
