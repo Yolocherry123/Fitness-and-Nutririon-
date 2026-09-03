@@ -650,40 +650,78 @@ export function TodayScreen() {
             <div className="macro-label">Protein</div>
             <div className="macro-line">
               <strong>{protein.consumedProtein}</strong>
-              <span className="muted">+{protein.expectedRemainingProtein}</span>
-              <span className="muted">→ {protein.expectedDailyProtein}</span>
+              <span className="muted">eaten</span>
+              <span className="muted">
+                +{protein.expectedRemainingProtein} left
+              </span>
               <span className="faint">/ {protein.targetProtein}g</span>
             </div>
             <div
               className="macro-track"
-              aria-hidden
-              title={`${protein.expectedDailyProtein} of ${protein.targetProtein}g`}
+              role="img"
+              aria-label={`Protein ${protein.consumedProtein}g eaten, ${protein.expectedRemainingProtein}g still expected, target ${protein.targetProtein}g`}
             >
               <span
+                className="macro-seg expected"
                 style={{
                   width: `${Math.min(100, Math.round((protein.expectedDailyProtein / Math.max(1, protein.targetProtein)) * 100))}%`,
                 }}
               />
+              <span
+                className="macro-seg consumed"
+                style={{
+                  width: `${Math.min(100, Math.round((protein.consumedProtein / Math.max(1, protein.targetProtein)) * 100))}%`,
+                }}
+              />
+            </div>
+            <div className="macro-legend">
+              <span className="macro-legend-item">
+                <i className="macro-swatch consumed" />
+                Eaten {protein.consumedProtein}g
+              </span>
+              <span className="macro-legend-item">
+                <i className="macro-swatch expected" />
+                Expected left {protein.expectedRemainingProtein}g
+              </span>
             </div>
           </div>
           <div>
             <div className="macro-label">Carbs</div>
             <div className="macro-line">
               <strong>{protein.consumedCarbs}</strong>
-              <span className="muted">+{protein.expectedRemainingCarbs}</span>
-              <span className="muted">→ {protein.expectedDailyCarbs}</span>
+              <span className="muted">eaten</span>
+              <span className="muted">
+                +{protein.expectedRemainingCarbs} left
+              </span>
               <span className="faint">/ {protein.carbTarget}g</span>
             </div>
             <div
               className="macro-track"
-              aria-hidden
-              title={`${protein.expectedDailyCarbs} of ${protein.carbTarget}g`}
+              role="img"
+              aria-label={`Carbs ${protein.consumedCarbs}g eaten, ${protein.expectedRemainingCarbs}g still expected, target ${protein.carbTarget}g`}
             >
               <span
+                className="macro-seg expected"
                 style={{
                   width: `${Math.min(100, Math.round((protein.expectedDailyCarbs / Math.max(1, protein.carbTarget)) * 100))}%`,
                 }}
               />
+              <span
+                className="macro-seg consumed"
+                style={{
+                  width: `${Math.min(100, Math.round((protein.consumedCarbs / Math.max(1, protein.carbTarget)) * 100))}%`,
+                }}
+              />
+            </div>
+            <div className="macro-legend">
+              <span className="macro-legend-item">
+                <i className="macro-swatch consumed" />
+                Eaten {protein.consumedCarbs}g
+              </span>
+              <span className="macro-legend-item">
+                <i className="macro-swatch expected" />
+                Expected left {protein.expectedRemainingCarbs}g
+              </span>
             </div>
           </div>
         </div>
