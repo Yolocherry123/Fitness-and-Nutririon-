@@ -674,9 +674,9 @@ h3 {
   top: 0;
   z-index: 20;
   margin: 0 -14px 10px;
-  padding: 8px 14px;
-  background: rgba(12, 20, 17, 0.92);
-  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  background: rgba(10, 16, 14, 0.96);
+  border-bottom: 1px solid var(--border-strong);
   backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
@@ -685,7 +685,7 @@ h3 {
 }
 
 .sticky-next strong {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
 }
 
 .day-strip {
