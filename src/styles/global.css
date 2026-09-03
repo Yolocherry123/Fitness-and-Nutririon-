@@ -1065,6 +1065,23 @@ h3 {
   transform: translateX(18px);
 }
 
+.tools-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+}
+
+.tools-switch-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .brand {
   font-family: var(--font-display);
   font-size: 1.1rem;

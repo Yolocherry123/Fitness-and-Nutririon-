@@ -623,22 +623,28 @@ export function TodayScreen() {
       <div className={`card protein-card tone-${statusTone(protein.status)}`} style={{ marginTop: 10 }}>
         <div className="row-between" style={{ marginBottom: 6, gap: 8 }}>
           <strong style={{ fontSize: '0.92rem' }}>Macros</strong>
-          <div className="row" style={{ gap: 6, flexShrink: 0 }}>
-            {optionalExtras.length > 0 && (
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ padding: '4px 8px' }}
-                onClick={() => setShowOptionalExtras((v) => !v)}
-              >
-                {showOptionalExtras
-                  ? 'Hide tools'
-                  : `Tools (${optionalExtras.length})`}
-              </button>
-            )}
-            <span className="chip">{statusLabel(protein.status)}</span>
-          </div>
+          <span className="chip">{statusLabel(protein.status)}</span>
         </div>
+        {optionalExtras.length > 0 && (
+          <div className="tools-switch-row">
+            <div>
+              <div className="tools-switch-label">Optional tools</div>
+              <div className="small faint">
+                {showOptionalExtras
+                  ? 'Showing sattu, snacks, and other extras'
+                  : `${optionalExtras.length} hidden — sattu, snacks, etc.`}
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showOptionalExtras}
+              aria-label="Show optional tools"
+              className={`switch${showOptionalExtras ? ' on' : ''}`}
+              onClick={() => setShowOptionalExtras((v) => !v)}
+            />
+          </div>
+        )}
         <div className="macro-grid">
           <div>
             <div className="macro-label">Protein</div>
