@@ -208,7 +208,9 @@ export function buildProteinSummary(input: {
     if (grams > 0 || isSattuCompletion(c.notes, c.foodActionId)) {
       const name = isSattuCompletion(c.notes, c.foodActionId)
         ? c.notes?.replace(/^Sattu · /, 'Sattu · ') || 'Sattu drink'
-        : c.notes?.replace(/^Shake · /, '') || 'Protein shake'
+        : c.notes?.startsWith('Extra snack')
+          ? c.notes.replace(/^Extra snack · /, '')
+          : c.notes?.replace(/^Shake · /, '') || 'Protein shake'
       consumedLines.push({
         foodActionId: c.foodActionId,
         name,

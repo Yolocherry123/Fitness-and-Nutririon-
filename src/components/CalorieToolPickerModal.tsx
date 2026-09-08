@@ -5,6 +5,7 @@ export type CalorieToolChoice =
   | 'sattu'
   | 'pb_sandwich'
   | 'milk'
+  | 'extra_snack'
   | 'other'
 
 const TOOLS: { id: CalorieToolChoice; label: string; sub?: string }[] = [
@@ -12,6 +13,11 @@ const TOOLS: { id: CalorieToolChoice; label: string; sub?: string }[] = [
   { id: 'sattu', label: 'Sattu Drink', sub: 'Flexible calories + some protein' },
   { id: 'pb_sandwich', label: 'PB Sandwich', sub: 'Bread + peanut butter' },
   { id: 'milk', label: 'Milk / milk-powder drink', sub: 'Liquid calories' },
+  {
+    id: 'extra_snack',
+    label: 'Extra snack / nuts',
+    sub: 'Roasted peanuts, mixed nuts, paneer, curd…',
+  },
   { id: 'other', label: 'Other', sub: 'Pick from optional tools below' },
 ]
 
@@ -28,7 +34,7 @@ export function CalorieToolPickerModal({
       subtitle={
         <>
           Prefer food tools before whey. Choose <strong>one</strong> convenient
-          addition — do not stack everything.
+          addition — snacks like roasted peanuts count toward protein.
         </>
       }
       onClose={onCancel}

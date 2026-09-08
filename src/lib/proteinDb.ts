@@ -134,6 +134,8 @@ export const DEFAULT_FOOD_PROTEIN: Record<string, number> = {
   sattu: 12,
   'pb sandwich': 8,
   'peanut butter': 8,
+  'roasted peanuts': 9,
+  'mixed nuts': 8,
   creatine: 0,
   water: 0,
 }
@@ -150,8 +152,90 @@ export const DEFAULT_FOOD_CARBS: Record<string, number> = {
   sattu: 22,
   'pb sandwich': 35,
   'peanut butter': 20,
+  'roasted peanuts': 6,
+  'mixed nuts': 5,
   creatine: 0,
   water: 0,
+}
+
+/** Convenient extra snacks/meals for closing a protein gap (approximate). */
+export type ExtraSnackId =
+  | 'roasted_peanuts'
+  | 'mixed_nuts'
+  | 'peanut_butter'
+  | 'paneer'
+  | 'curd'
+  | 'milk'
+  | 'other'
+
+export const EXTRA_SNACK_SOURCES: {
+  id: ExtraSnackId
+  label: string
+  sub?: string
+  byPortion: Record<ProteinPortion, number>
+  carbsByPortion: Record<ProteinPortion, number>
+}[] = [
+  {
+    id: 'roasted_peanuts',
+    label: 'Roasted peanuts',
+    sub: 'Small handful → large handful',
+    byPortion: { small: 6, normal: 9, large: 13 },
+    carbsByPortion: { small: 4, normal: 6, large: 9 },
+  },
+  {
+    id: 'mixed_nuts',
+    label: 'Mixed nuts',
+    sub: '~10–15 g normal handful',
+    byPortion: { small: 5, normal: 8, large: 12 },
+    carbsByPortion: { small: 3, normal: 5, large: 8 },
+  },
+  {
+    id: 'peanut_butter',
+    label: 'Peanut butter',
+    sub: 'On bread, banana, or spoon',
+    byPortion: { small: 4, normal: 8, large: 12 },
+    carbsByPortion: { small: 4, normal: 8, large: 12 },
+  },
+  {
+    id: 'paneer',
+    label: 'Paneer',
+    sub: 'Small extra serving',
+    byPortion: { small: 8, normal: 14, large: 20 },
+    carbsByPortion: { small: 2, normal: 4, large: 6 },
+  },
+  {
+    id: 'curd',
+    label: 'Curd / yogurt',
+    byPortion: { small: 4, normal: 7, large: 10 },
+    carbsByPortion: { small: 4, normal: 6, large: 9 },
+  },
+  {
+    id: 'milk',
+    label: 'Milk / milk-powder drink',
+    byPortion: { small: 4, normal: 8, large: 12 },
+    carbsByPortion: { small: 6, normal: 12, large: 18 },
+  },
+  {
+    id: 'other',
+    label: 'Other snack / small meal',
+    sub: 'Estimate protein from what you ate',
+    byPortion: { small: 5, normal: 10, large: 15 },
+    carbsByPortion: { small: 5, normal: 10, large: 15 },
+  },
+]
+
+export function proteinForExtraSnack(
+  id: ExtraSnackId,
+  portion: ProteinPortion = 'normal',
+): number {
+  return EXTRA_SNACK_SOURCES.find((s) => s.id === id)?.byPortion[portion] ?? 0
+}
+
+export function carbsForExtraSnack(
+  id: ExtraSnackId,
+  portion: ProteinPortion = 'normal',
+): number {
+  return EXTRA_SNACK_SOURCES.find((s) => s.id === id)?.carbsByPortion[portion] ?? 0
 }
 
 export function defaultProteinForActionName(name: string): number | undefined {

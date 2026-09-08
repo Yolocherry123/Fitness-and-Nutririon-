@@ -6,6 +6,7 @@ import { HeaderIconButton, useHeaderHints } from '../components/HeaderActions'
 import { IconBook, IconCheckIn, IconGear, IconScale } from '../components/Icons'
 import { MealProteinModal } from '../components/MealProteinModal'
 import { ProteinAddOnModal } from '../components/ProteinAddOnModal'
+import { ExtraSnackModal } from '../components/ExtraSnackModal'
 import { ShakeLogModal } from '../components/ShakeLogModal'
 import { SattuLogModal } from '../components/SattuLogModal'
 import {
@@ -30,7 +31,9 @@ import {
 import {
   buildProteinChecklistSuggestions,
   EGGS_ACTION_ID,
+  EXTRA_SNACK_ACTION_ID,
   isEggsAddOnAction,
+  isExtraSnackAction,
 } from '../engines/proteinSuggestions'
 import { useWorkoutDays } from '../hooks/useProgram'
 import {
@@ -114,6 +117,7 @@ export function TodayScreen() {
   )
   const [eggsOpen, setEggsOpen] = useState(false)
   const [eggsDefaultCount, setEggsDefaultCount] = useState<1 | 2 | 3>(2)
+  const [snackOpen, setSnackOpen] = useState(false)
   const [sattuOpen, setSattuOpen] = useState<
     'calories' | 'convenience' | 'protein_caveat' | null
   >(null)
@@ -195,6 +199,7 @@ export function TodayScreen() {
     .filter(
       (s) =>
         s.kind === 'eggs' ||
+        s.kind === 'snack' ||
         s.kind === 'whey' ||
         s.kind === 'sattu' ||
         s.kind === 'banana',
@@ -212,7 +217,8 @@ export function TodayScreen() {
       a.category === 'OPTIONAL' &&
       a.timeWindow !== 'Night' &&
       !promotedIds.has(a.id) &&
-      !isEggsAddOnAction(a),
+      !isEggsAddOnAction(a) &&
+      !isExtraSnackAction(a),
   )
 
   // Keep checked items in place so a mistaken tap can be unticked immediately
@@ -267,13 +273,18 @@ export function TodayScreen() {
       setSattuOpen('calories')
       return
     }
+    if (choice === 'extra_snack') {
+      setCaloriePickerOpen(false)
+      setSnackOpen(true)
+      return
+    }
     if (choice === 'other') {
       setCaloriePickerOpen(false)
       setShowOptionalExtras(true)
       return
     }
 
-    const matchers: Record<Exclude<CalorieToolChoice, 'sattu' | 'other'>, RegExp> = {
+    const matchers: Record<Exclude<CalorieToolChoice, 'sattu' | 'extra_snack' | 'other'>, RegExp> = {
       banana: /banana/i,
       pb_sandwich: /peanut butter sandwich|pb sandwich/i,
       milk: /night milk|milk.*curd/i,
@@ -393,6 +404,11 @@ export function TodayScreen() {
       const count = /3/.test(action.name) ? 3 : /1\b/.test(action.name) ? 1 : 2
       setEggsDefaultCount(count as 1 | 2 | 3)
       setEggsOpen(true)
+      return
+    }
+
+    if (!currentlyDone && isExtraSnackAction(action)) {
+      setSnackOpen(true)
       return
     }
 
@@ -734,21 +750,14 @@ export function TodayScreen() {
           </p>
         )}
         <div className="row macro-actions" style={{ gap: 6, marginTop: 6 }}>
-          {(protein.suggestCalorieTool ||
-            proteinSuggestions.some(
-              (s) =>
-                s.goal !== 'logged' &&
-                (s.goal === 'carbs' || s.goal === 'calories' || s.kind === 'sattu'),
-            )) && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ flex: 1 }}
-              onClick={() => setCaloriePickerOpen(true)}
-            >
-              Add food
-            </button>
-          )}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ flex: 1 }}
+            onClick={() => setCaloriePickerOpen(true)}
+          >
+            Add food
+          </button>
           {proteinSuggestions.some(
             (s) => s.kind === 'whey' && s.goal !== 'logged',
           ) &&
@@ -1014,6 +1023,43 @@ export function TodayScreen() {
             setPulseId(EGGS_ACTION_ID)
             window.setTimeout(() => setPulseId(null), 420)
             setEggsOpen(false)
+          }}
+        />
+      )}
+
+      {snackOpen && (
+        <ExtraSnackModal
+          onCancel={() => setSnackOpen(false)}
+          onSave={async ({
+            estimatedProtein,
+            estimatedCarbs,
+            breakdown,
+            notes,
+            label,
+            portion,
+          }) => {
+            const snackId = `${EXTRA_SNACK_ACTION_ID}:${uid()}`
+            const snackAction: FoodAction = {
+              id: snackId,
+              name: label,
+              dayOfWeek: null,
+              timeWindow: 'Afternoon',
+              category: 'OPTIONAL',
+              sortOrder: 50,
+              quantity: portion,
+              estimatedProteinG: estimatedProtein,
+              notes,
+            }
+            await writeCompletion(snackAction, true, {
+              logMode: 'APPROXIMATE',
+              estimatedProtein,
+              estimatedCarbs,
+              proteinBreakdown: breakdown,
+              notes,
+            })
+            setPulseId(snackId)
+            window.setTimeout(() => setPulseId(null), 420)
+            setSnackOpen(false)
           }}
         />
       )}
