@@ -9,15 +9,18 @@ import {
   DEFAULT_WHEY_PROTEIN_G,
   defaultCarbsForActionName,
   defaultProteinForActionName,
+  proteinForExtraSnack,
   proteinForSource,
 } from '../lib/proteinDb'
 import { isWheyAction } from './logic'
 import type { ProteinSummary } from './protein'
 
 export const EGGS_ACTION_ID = 'protein-addon-eggs'
+export const EXTRA_SNACK_ACTION_ID = 'extra-snack'
 
 export type GapSuggestionKind =
   | 'eggs'
+  | 'snack'
   | 'sattu'
   | 'banana'
   | 'night_dairy'
@@ -39,6 +42,23 @@ export function isEggsAddOnAction(
     action.id === EGGS_ACTION_ID ||
     /^add eggs\b/i.test(action.name) ||
     /\beggs?\s*\(/i.test(action.name)
+  )
+}
+
+export function isExtraSnackAction(
+  action: Pick<FoodAction, 'id' | 'name'>,
+): boolean {
+  return (
+    action.id === EXTRA_SNACK_ACTION_ID ||
+    action.id.startsWith(`${EXTRA_SNACK_ACTION_ID}:`) ||
+    /^extra snack\b/i.test(action.name)
+  )
+}
+
+export function isExtraSnackCompletionId(foodActionId: string): boolean {
+  return (
+    foodActionId === EXTRA_SNACK_ACTION_ID ||
+    foodActionId.startsWith(`${EXTRA_SNACK_ACTION_ID}:`)
   )
 }
 
@@ -78,6 +98,25 @@ function syntheticEggsAction(count: 1 | 2 | 3): FoodAction {
     estimatedProteinG: grams,
     notes:
       'Convenient food protein — prefer this before whey. Log when you eat them.',
+  }
+}
+
+function syntheticSnackAction(opts?: {
+  name?: string
+  proteinG?: number
+  id?: string
+}): FoodAction {
+  const grams = opts?.proteinG ?? proteinForExtraSnack('roasted_peanuts', 'normal')
+  return {
+    id: opts?.id ?? EXTRA_SNACK_ACTION_ID,
+    name: opts?.name ?? 'Extra snack (peanuts…)',
+    dayOfWeek: null,
+    timeWindow: 'Afternoon',
+    category: 'OPTIONAL',
+    sortOrder: 50,
+    estimatedProteinG: grams,
+    notes:
+      'Roasted peanuts, mixed nuts, paneer, curd, or another small bite toward protein.',
   }
 }
 
@@ -121,6 +160,10 @@ export function buildProteinChecklistSuggestions(input: {
         isWheyAction({ id: c.foodActionId, name: c.notes ?? '' }),
     )
   const eggsLogged = doneIds.has(EGGS_ACTION_ID)
+  const snackCompletions = completions.filter(
+    (c) => c.completed && isExtraSnackCompletionId(c.foodActionId),
+  )
+  const snackLogged = snackCompletions.length > 0
   const sattuAction = actions.find(isSattuFoodAction)
   const sattuLogged =
     (!!sattuAction && doneIds.has(sattuAction.id)) ||
@@ -156,6 +199,41 @@ export function buildProteinChecklistSuggestions(input: {
       action: syntheticEggsAction(grams >= 17 ? 3 : grams >= 11 ? 2 : 1),
       hint: 'Logged today.',
       estimatedProteinG: grams,
+      goal: 'logged',
+    })
+  }
+  // One checklist row for all extra snacks (avoids duplicate clutter).
+  if (snackLogged) {
+    const totalP = round1(
+      snackCompletions.reduce((s, c) => s + (c.estimatedProtein ?? 0), 0),
+    )
+    const totalC = round1(
+      snackCompletions.reduce((s, c) => s + (c.estimatedCarbs ?? 0), 0),
+    )
+    const firstLabel =
+      snackCompletions[0]?.notes
+        ?.replace(/^Extra snack · /, '')
+        ?.replace(/ · (small|normal|large)$/i, '') || 'Extra snack'
+    const name =
+      snackCompletions.length === 1
+        ? firstLabel
+        : `Extra snacks (${snackCompletions.length})`
+    out.push({
+      kind: 'snack',
+      action: {
+        ...syntheticSnackAction({
+          id: EXTRA_SNACK_ACTION_ID,
+          name,
+          proteinG: totalP,
+        }),
+        notes:
+          snackCompletions.length === 1
+            ? `${snackCompletions[0]?.notes?.replace(/^Extra snack · /, '') ?? ''} · tap to add another or clear`
+            : `${totalP}g protein logged · tap to add another or clear`,
+      },
+      hint: 'Logged today.',
+      estimatedProteinG: totalP,
+      estimatedCarbsG: totalC,
       goal: 'logged',
     })
   }
@@ -197,7 +275,7 @@ export function buildProteinChecklistSuggestions(input: {
   }
 
   if (!projectedProteinShort && !carbOrCalShort) {
-    return dedupeSuggestions(out).slice(0, 2)
+    return dedupeSuggestions(out)
   }
 
   // Only count newly suggested (not already-logged) foods toward closing the gap.
@@ -206,7 +284,14 @@ export function buildProteinChecklistSuggestions(input: {
   let accountedCarbs = 0
 
   const pushFood = (s: ProteinChecklistSuggestion) => {
-    if (out.some((x) => x.action.id === s.action.id || x.kind === s.kind)) {
+    if (out.some((x) => x.action.id === s.action.id)) {
+      return false
+    }
+    // Allow another snack suggestion while prior snack logs stay visible.
+    if (
+      s.kind !== 'snack' &&
+      out.some((x) => x.kind === s.kind)
+    ) {
       return false
     }
     const active = out.filter((x) => x.goal !== 'logged')
@@ -251,6 +336,23 @@ export function buildProteinChecklistSuggestions(input: {
           goal: 'protein',
         })
       }
+    }
+  }
+
+  // 1b) Extra snack (peanuts, nuts, paneer…) — only when none logged yet.
+  // If snacks are already logged, the single logged row lets the user add another.
+  if (projectedProteinShort && !snackLogged) {
+    const remainingP = proteinGap - accountedProtein
+    if (remainingP > 5) {
+      const snackG = proteinForExtraSnack('roasted_peanuts', 'normal')
+      pushFood({
+        kind: 'snack',
+        action: syntheticSnackAction({ proteinG: snackG }),
+        hint: `Suggested for protein — ~${snackG}g from roasted peanuts or similar.`,
+        estimatedProteinG: snackG,
+        estimatedCarbsG: 6,
+        goal: 'protein',
+      })
     }
   }
 
@@ -339,10 +441,13 @@ export function buildProteinChecklistSuggestions(input: {
   const triedEggsOrDairy =
     eggsLogged ||
     activeFood.some((s) => s.kind === 'eggs' || s.kind === 'night_dairy')
+  const triedSnack =
+    snackLogged || activeFood.some((s) => s.kind === 'snack')
   const triedSattu =
     sattuLogged || !sattuAction || activeFood.some((s) => s.kind === 'sattu')
   const foodExhausted =
-    activeFood.length >= 2 || (triedEggsOrDairy && triedSattu)
+    activeFood.length >= 2 ||
+    ((triedEggsOrDairy || triedSnack) && triedSattu)
 
   const wantWheyLastResort =
     !!profile?.usesWhey &&
@@ -388,4 +493,8 @@ function dedupeSuggestions(
     deduped.push(s)
   }
   return deduped
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10
 }

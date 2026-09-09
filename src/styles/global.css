@@ -1208,11 +1208,24 @@ h3 {
     color-mix(in srgb, var(--accent) 28%, transparent) 8px
   );
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+  z-index: 1;
+}
+
+.macro-seg.optional {
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--warn, #d4a574) 50%, transparent),
+    color-mix(in srgb, var(--warn, #d4a574) 50%, transparent) 3px,
+    color-mix(in srgb, var(--warn, #d4a574) 22%, transparent) 3px,
+    color-mix(in srgb, var(--warn, #d4a574) 22%, transparent) 6px
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn, #d4a574) 40%, transparent);
+  z-index: 0;
 }
 
 .macro-seg.consumed {
   background: linear-gradient(90deg, var(--accent-strong), var(--accent));
-  z-index: 1;
+  z-index: 2;
   box-shadow: 1px 0 0 rgba(0, 0, 0, 0.25);
 }
 
@@ -1253,6 +1266,25 @@ h3 {
     color-mix(in srgb, var(--accent) 28%, transparent) 4px
   );
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.macro-swatch.optional {
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--warn, #d4a574) 50%, transparent),
+    color-mix(in srgb, var(--warn, #d4a574) 50%, transparent) 2px,
+    color-mix(in srgb, var(--warn, #d4a574) 22%, transparent) 2px,
+    color-mix(in srgb, var(--warn, #d4a574) 22%, transparent) 4px
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn, #d4a574) 40%, transparent);
+}
+
+.macro-optional-hint {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--warn, #d4a574) 85%, var(--text-muted));
+  line-height: 1.3;
 }
 
 .macro-summary {

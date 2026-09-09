@@ -6,6 +6,7 @@ import { HeaderIconButton, useHeaderHints } from '../components/HeaderActions'
 import { IconBook, IconCheckIn, IconGear, IconScale } from '../components/Icons'
 import { MealProteinModal } from '../components/MealProteinModal'
 import { ProteinAddOnModal } from '../components/ProteinAddOnModal'
+import { ExtraSnackModal } from '../components/ExtraSnackModal'
 import { ShakeLogModal } from '../components/ShakeLogModal'
 import { SattuLogModal } from '../components/SattuLogModal'
 import {
@@ -30,7 +31,10 @@ import {
 import {
   buildProteinChecklistSuggestions,
   EGGS_ACTION_ID,
+  EXTRA_SNACK_ACTION_ID,
   isEggsAddOnAction,
+  isExtraSnackAction,
+  isExtraSnackCompletionId,
 } from '../engines/proteinSuggestions'
 import { useWorkoutDays } from '../hooks/useProgram'
 import {
@@ -114,6 +118,10 @@ export function TodayScreen() {
   )
   const [eggsOpen, setEggsOpen] = useState(false)
   const [eggsDefaultCount, setEggsDefaultCount] = useState<1 | 2 | 3>(2)
+  const [snackOpen, setSnackOpen] = useState(false)
+  const [snackInitialId, setSnackInitialId] = useState<
+    import('../lib/proteinDb').ExtraSnackId
+  >('roasted_peanuts')
   const [sattuOpen, setSattuOpen] = useState<
     'calories' | 'convenience' | 'protein_caveat' | null
   >(null)
@@ -184,6 +192,47 @@ export function TodayScreen() {
     [protein, actions, completions, profile, settings],
   )
 
+  // Synthetic gap-fills (eggs / snack / whey) aren't plan rows — fold into optional upside.
+  const optionalBoost = useMemo(() => {
+    let proteinG = 0
+    let carbsG = 0
+    for (const s of proteinSuggestions) {
+      if (s.goal === 'logged') continue
+      if (s.kind === 'eggs' || s.kind === 'snack' || s.kind === 'whey') {
+        proteinG += s.estimatedProteinG
+        carbsG += s.estimatedCarbsG ?? 0
+      }
+    }
+    return { proteinG, carbsG }
+  }, [proteinSuggestions])
+
+  const optionalProteinTotal =
+    Math.round((protein.optionalRemainingProtein + optionalBoost.proteinG) * 10) / 10
+  const optionalCarbsTotal =
+    Math.round((protein.optionalRemainingCarbs + optionalBoost.carbsG) * 10) / 10
+  const projectedProteinR =
+    Math.round(
+      (protein.expectedDailyProtein +
+        protein.optionalRemainingProtein +
+        optionalBoost.proteinG) *
+        10,
+    ) / 10
+  const projectedCarbsR =
+    Math.round(
+      (protein.expectedDailyCarbs +
+        protein.optionalRemainingCarbs +
+        optionalBoost.carbsG) *
+        10,
+    ) / 10
+  const stillNeedProtein = Math.max(
+    0,
+    Math.round((protein.minimumTarget - projectedProteinR) * 10) / 10,
+  )
+  const stillNeedCarbs = Math.max(
+    0,
+    Math.round((protein.carbMinimum - projectedCarbsR) * 10) / 10,
+  )
+
   const suggestionById = useMemo(() => {
     const map = new Map<string, (typeof proteinSuggestions)[number]>()
     for (const s of proteinSuggestions) map.set(s.action.id, s)
@@ -195,6 +244,7 @@ export function TodayScreen() {
     .filter(
       (s) =>
         s.kind === 'eggs' ||
+        s.kind === 'snack' ||
         s.kind === 'whey' ||
         s.kind === 'sattu' ||
         s.kind === 'banana',
@@ -212,7 +262,8 @@ export function TodayScreen() {
       a.category === 'OPTIONAL' &&
       a.timeWindow !== 'Night' &&
       !promotedIds.has(a.id) &&
-      !isEggsAddOnAction(a),
+      !isEggsAddOnAction(a) &&
+      !isExtraSnackAction(a),
   )
 
   // Keep checked items in place so a mistaken tap can be unticked immediately
@@ -267,13 +318,20 @@ export function TodayScreen() {
       setSattuOpen('calories')
       return
     }
-    if (choice === 'other') {
+    if (choice === 'extra_snack' || choice === 'other') {
       setCaloriePickerOpen(false)
-      setShowOptionalExtras(true)
+      setSnackInitialId(choice === 'other' ? 'other' : 'roasted_peanuts')
+      // Keep a real picker open — "Other" used to only flip a toggle and left
+      // nothing selectable.
+      setSnackOpen(true)
+      if (choice === 'other') setShowOptionalExtras(true)
       return
     }
 
-    const matchers: Record<Exclude<CalorieToolChoice, 'sattu' | 'other'>, RegExp> = {
+    const matchers: Record<
+      Exclude<CalorieToolChoice, 'sattu' | 'extra_snack' | 'other'>,
+      RegExp
+    > = {
       banana: /banana/i,
       pb_sandwich: /peanut butter sandwich|pb sandwich/i,
       milk: /night milk|milk.*curd/i,
@@ -393,6 +451,14 @@ export function TodayScreen() {
       const count = /3/.test(action.name) ? 3 : /1\b/.test(action.name) ? 1 : 2
       setEggsDefaultCount(count as 1 | 2 | 3)
       setEggsOpen(true)
+      return
+    }
+
+    if (isExtraSnackAction(action)) {
+      // Always open the snack picker — logged row is a summary; untick/clear
+      // happens inside the modal so we don't spawn duplicate checklist rows.
+      setSnackInitialId('roasted_peanuts')
+      setSnackOpen(true)
       return
     }
 
@@ -652,15 +718,24 @@ export function TodayScreen() {
               <strong>{protein.consumedProtein}</strong>
               <span className="muted">eaten</span>
               <span className="muted">
-                +{protein.expectedRemainingProtein} left
+                +{protein.expectedRemainingProtein} planned
               </span>
+              {optionalProteinTotal > 0 && (
+                <span className="muted">+{optionalProteinTotal} opt</span>
+              )}
               <span className="faint">/ {protein.targetProtein}g</span>
             </div>
             <div
               className="macro-track"
               role="img"
-              aria-label={`Protein ${protein.consumedProtein}g eaten, ${protein.expectedRemainingProtein}g still expected, target ${protein.targetProtein}g`}
+              aria-label={`Protein ${protein.consumedProtein}g eaten, ${protein.expectedRemainingProtein}g planned left, ${optionalProteinTotal}g from optionals, target ${protein.targetProtein}g`}
             >
+              <span
+                className="macro-seg optional"
+                style={{
+                  width: `${Math.min(100, Math.round((projectedProteinR / Math.max(1, protein.targetProtein)) * 100))}%`,
+                }}
+              />
               <span
                 className="macro-seg expected"
                 style={{
@@ -681,9 +756,23 @@ export function TodayScreen() {
               </span>
               <span className="macro-legend-item">
                 <i className="macro-swatch expected" />
-                Expected left {protein.expectedRemainingProtein}g
+                Planned {protein.expectedRemainingProtein}g
               </span>
+              {optionalProteinTotal > 0 && (
+                <span className="macro-legend-item">
+                  <i className="macro-swatch optional" />
+                  Optionals {optionalProteinTotal}g
+                </span>
+              )}
             </div>
+            {optionalProteinTotal > 0 && (
+              <p className="macro-optional-hint">
+                With optionals ~{projectedProteinR}g
+                {stillNeedProtein > 0
+                  ? ` · still need ~${stillNeedProtein}g`
+                  : ' · hits minimum'}
+              </p>
+            )}
           </div>
           <div>
             <div className="macro-label">Carbs</div>
@@ -691,15 +780,24 @@ export function TodayScreen() {
               <strong>{protein.consumedCarbs}</strong>
               <span className="muted">eaten</span>
               <span className="muted">
-                +{protein.expectedRemainingCarbs} left
+                +{protein.expectedRemainingCarbs} planned
               </span>
+              {optionalCarbsTotal > 0 && (
+                <span className="muted">+{optionalCarbsTotal} opt</span>
+              )}
               <span className="faint">/ {protein.carbTarget}g</span>
             </div>
             <div
               className="macro-track"
               role="img"
-              aria-label={`Carbs ${protein.consumedCarbs}g eaten, ${protein.expectedRemainingCarbs}g still expected, target ${protein.carbTarget}g`}
+              aria-label={`Carbs ${protein.consumedCarbs}g eaten, ${protein.expectedRemainingCarbs}g planned left, ${optionalCarbsTotal}g from optionals, target ${protein.carbTarget}g`}
             >
+              <span
+                className="macro-seg optional"
+                style={{
+                  width: `${Math.min(100, Math.round((projectedCarbsR / Math.max(1, protein.carbTarget)) * 100))}%`,
+                }}
+              />
               <span
                 className="macro-seg expected"
                 style={{
@@ -720,9 +818,23 @@ export function TodayScreen() {
               </span>
               <span className="macro-legend-item">
                 <i className="macro-swatch expected" />
-                Expected left {protein.expectedRemainingCarbs}g
+                Planned {protein.expectedRemainingCarbs}g
               </span>
+              {optionalCarbsTotal > 0 && (
+                <span className="macro-legend-item">
+                  <i className="macro-swatch optional" />
+                  Optionals {optionalCarbsTotal}g
+                </span>
+              )}
             </div>
+            {optionalCarbsTotal > 0 && (
+              <p className="macro-optional-hint">
+                With optionals ~{projectedCarbsR}g
+                {stillNeedCarbs > 0
+                  ? ` · still need ~${stillNeedCarbs}g`
+                  : ' · hits minimum'}
+              </p>
+            )}
           </div>
         </div>
         <p className="small muted" style={{ margin: '6px 0 0', lineHeight: 1.35 }}>
@@ -734,21 +846,14 @@ export function TodayScreen() {
           </p>
         )}
         <div className="row macro-actions" style={{ gap: 6, marginTop: 6 }}>
-          {(protein.suggestCalorieTool ||
-            proteinSuggestions.some(
-              (s) =>
-                s.goal !== 'logged' &&
-                (s.goal === 'carbs' || s.goal === 'calories' || s.kind === 'sattu'),
-            )) && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ flex: 1 }}
-              onClick={() => setCaloriePickerOpen(true)}
-            >
-              Add food
-            </button>
-          )}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ flex: 1 }}
+            onClick={() => setCaloriePickerOpen(true)}
+          >
+            Add food
+          </button>
           {proteinSuggestions.some(
             (s) => s.kind === 'whey' && s.goal !== 'logged',
           ) &&
@@ -797,6 +902,27 @@ export function TodayScreen() {
                 {l.name}: ~{l.grams} g protein
               </div>
             ))}
+            {(protein.optionalLines.length > 0 || optionalBoost.proteinG > 0) && (
+              <>
+                <div className="section-label">If optionals taken</div>
+                {protein.optionalLines.map((l) => (
+                  <div key={l.foodActionId} className="small muted" style={{ marginBottom: 4 }}>
+                    {l.name}: ~{l.grams} g protein
+                  </div>
+                ))}
+                {optionalBoost.proteinG > 0 && (
+                  <div className="small muted" style={{ marginBottom: 4 }}>
+                    Suggested extras (eggs/snack/whey): ~{optionalBoost.proteinG} g
+                  </div>
+                )}
+                <p className="small muted" style={{ marginTop: 6 }}>
+                  Projected with optionals ~{projectedProteinR}g protein
+                  {stillNeedProtein > 0
+                    ? ` · still ~${stillNeedProtein}g short of minimum`
+                    : ' · covers minimum'}
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -813,16 +939,23 @@ export function TodayScreen() {
           <div className="stack">
             {g.items.map((a) => {
               const suggestion = suggestionById.get(a.id)
+              const snackLoggedDone =
+                isExtraSnackAction(a) &&
+                completions.some(
+                  (c) => c.completed && isExtraSnackCompletionId(c.foodActionId),
+                )
+              const done =
+                doneMap.get(a.id)?.completed === true || snackLoggedDone
               const showSuggest =
                 !!suggestion &&
                 suggestion.hint !== 'Logged today.' &&
-                doneMap.get(a.id)?.completed !== true
+                !done
               return (
               <FoodRow
                 key={a.id}
                 action={a}
-                done={doneMap.get(a.id)?.completed === true}
-                pulsing={pulseId === a.id}
+                done={done}
+                pulsing={pulseId === a.id || pulseId === EXTRA_SNACK_ACTION_ID && isExtraSnackAction(a)}
                 detail={doneMap.get(a.id)}
                 milkPowder={
                   !!a.allowsMilkPowderSub && !!profile?.milkPowderSubstitute
@@ -1014,6 +1147,67 @@ export function TodayScreen() {
             setPulseId(EGGS_ACTION_ID)
             window.setTimeout(() => setPulseId(null), 420)
             setEggsOpen(false)
+          }}
+        />
+      )}
+
+      {snackOpen && (
+        <ExtraSnackModal
+          key={snackInitialId}
+          initialSnack={snackInitialId}
+          canClear={completions.some(
+            (c) => c.completed && isExtraSnackCompletionId(c.foodActionId),
+          )}
+          onCancel={() => setSnackOpen(false)}
+          onClear={async () => {
+            const rows = completions.filter((c) =>
+              isExtraSnackCompletionId(c.foodActionId),
+            )
+            const now = new Date().toISOString()
+            await Promise.all(
+              rows.map((c) =>
+                db.completions.put({
+                  ...c,
+                  completed: false,
+                  estimatedProtein: undefined,
+                  estimatedCarbs: undefined,
+                  proteinBreakdown: undefined,
+                  updatedAt: now,
+                }),
+              ),
+            )
+            setSnackOpen(false)
+          }}
+          onSave={async ({
+            estimatedProtein,
+            estimatedCarbs,
+            breakdown,
+            notes,
+            label,
+            portion,
+          }) => {
+            const snackId = `${EXTRA_SNACK_ACTION_ID}:${uid()}`
+            const snackAction: FoodAction = {
+              id: snackId,
+              name: label,
+              dayOfWeek: null,
+              timeWindow: 'Afternoon',
+              category: 'OPTIONAL',
+              sortOrder: 50,
+              quantity: portion,
+              estimatedProteinG: estimatedProtein,
+              notes,
+            }
+            await writeCompletion(snackAction, true, {
+              logMode: 'APPROXIMATE',
+              estimatedProtein,
+              estimatedCarbs,
+              proteinBreakdown: breakdown,
+              notes,
+            })
+            setPulseId(EXTRA_SNACK_ACTION_ID)
+            window.setTimeout(() => setPulseId(null), 420)
+            setSnackOpen(false)
           }}
         />
       )}

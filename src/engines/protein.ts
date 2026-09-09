@@ -27,6 +27,12 @@ export interface ProteinSummary {
   consumedProtein: number
   expectedRemainingProtein: number
   expectedDailyProtein: number
+  /** Protein still available from unfinished OPTIONAL tools (not banked in expected). */
+  optionalRemainingProtein: number
+  /** consumed + planned expected + optional upside */
+  projectedWithOptionalsProtein: number
+  /** Grams still needed vs minimum after counting optionals too */
+  stillNeededWithOptionalsProtein: number
   targetProtein: number
   minimumTarget: number
   maximumTarget: number
@@ -34,6 +40,9 @@ export interface ProteinSummary {
   consumedCarbs: number
   expectedRemainingCarbs: number
   expectedDailyCarbs: number
+  optionalRemainingCarbs: number
+  projectedWithOptionalsCarbs: number
+  stillNeededWithOptionalsCarbs: number
   carbTarget: number
   carbMinimum: number
   carbMaximum: number
@@ -49,6 +58,7 @@ export interface ProteinSummary {
   hour: number
   consumedLines: ProteinLine[]
   expectedLines: ProteinLine[]
+  optionalLines: ProteinLine[]
 }
 
 function proteinFromCompletion(
@@ -118,6 +128,34 @@ function carbsFromCompletion(
 function expectedCarbsForAction(action: FoodAction): number {
   if (action.category === 'OPTIONAL' && /whey|shake|sattu/i.test(action.name)) return 0
   if (isChickenOrKebabAction(action)) return 0
+  return defaultCarbsForActionName(action.name) ?? 0
+}
+
+/** Optional-tool upside (counted separately — not banked as "expected"). */
+function optionalProteinForAction(
+  action: FoodAction,
+  settings?: AppSettings | null,
+): number {
+  if (action.category !== 'OPTIONAL') return 0
+  if (/walk|water|creatine|ghee/i.test(action.name)) return 0
+  if (/whey|shake/i.test(action.name)) {
+    return settings?.wheyProteinPerServingG ?? DEFAULT_WHEY_PROTEIN_G
+  }
+  if (action.estimatedProteinG != null) return action.estimatedProteinG
+  return defaultProteinForActionName(action.name) ?? 0
+}
+
+function optionalCarbsForAction(
+  action: FoodAction,
+  settings?: AppSettings | null,
+): number {
+  if (action.category !== 'OPTIONAL') return 0
+  if (/walk|water|creatine|ghee|whey|shake/i.test(action.name)) {
+    return /whey|shake/i.test(action.name) ? 3 : 0
+  }
+  if (/sattu/i.test(action.name)) {
+    return settings?.sattuCarbsPerServingG ?? defaultCarbsForActionName(action.name) ?? 22
+  }
   return defaultCarbsForActionName(action.name) ?? 0
 }
 
@@ -208,7 +246,9 @@ export function buildProteinSummary(input: {
     if (grams > 0 || isSattuCompletion(c.notes, c.foodActionId)) {
       const name = isSattuCompletion(c.notes, c.foodActionId)
         ? c.notes?.replace(/^Sattu · /, 'Sattu · ') || 'Sattu drink'
-        : c.notes?.replace(/^Shake · /, '') || 'Protein shake'
+        : c.notes?.startsWith('Extra snack')
+          ? c.notes.replace(/^Extra snack · /, '')
+          : c.notes?.replace(/^Shake · /, '') || 'Protein shake'
       consumedLines.push({
         foodActionId: c.foodActionId,
         name,
@@ -232,6 +272,42 @@ export function buildProteinSummary(input: {
   expectedRemainingCarbs = round1(expectedRemainingCarbs)
   const expectedDailyCarbs = round1(consumedCarbs + expectedRemainingCarbs)
   const carbGap = round1(carbTarget - expectedDailyCarbs)
+
+  // Optional upside — unfinished OPTIONAL tools the user could still take
+  const optionalLines: ProteinLine[] = []
+  let optionalRemainingProtein = 0
+  let optionalRemainingCarbs = 0
+  for (const a of input.actions) {
+    if (a.category !== 'OPTIONAL') continue
+    if (doneMap.get(a.id)?.completed) continue
+    if (isChickenOrKebabAction(a)) continue
+    const grams = optionalProteinForAction(a, input.settings)
+    const carbs = optionalCarbsForAction(a, input.settings)
+    if (grams <= 0 && carbs <= 0) continue
+    optionalRemainingProtein += grams
+    optionalRemainingCarbs += carbs
+    optionalLines.push({
+      foodActionId: a.id,
+      name: a.name,
+      grams,
+      status: 'EXPECTED',
+      approximate: true,
+    })
+  }
+  optionalRemainingProtein = round1(optionalRemainingProtein)
+  optionalRemainingCarbs = round1(optionalRemainingCarbs)
+  const projectedWithOptionalsProtein = round1(
+    expectedDailyProtein + optionalRemainingProtein,
+  )
+  const projectedWithOptionalsCarbs = round1(
+    expectedDailyCarbs + optionalRemainingCarbs,
+  )
+  const stillNeededWithOptionalsProtein = round1(
+    Math.max(0, minT - projectedWithOptionalsProtein),
+  )
+  const stillNeededWithOptionalsCarbs = round1(
+    Math.max(0, carbMin - projectedWithOptionalsCarbs),
+  )
 
   const mealsRemain = expectedLines.some((l) =>
     /lunch|dinner|hostel|chicken|kebab|breakfast/i.test(l.name),
@@ -301,6 +377,9 @@ export function buildProteinSummary(input: {
     consumedProtein,
     expectedRemainingProtein,
     expectedDailyProtein,
+    optionalRemainingProtein,
+    projectedWithOptionalsProtein,
+    stillNeededWithOptionalsProtein,
     targetProtein: target,
     minimumTarget: minT,
     maximumTarget: maxT,
@@ -308,6 +387,9 @@ export function buildProteinSummary(input: {
     consumedCarbs,
     expectedRemainingCarbs,
     expectedDailyCarbs,
+    optionalRemainingCarbs,
+    projectedWithOptionalsCarbs,
+    stillNeededWithOptionalsCarbs,
     carbTarget,
     carbMinimum: carbMin,
     carbMaximum: carbMax,
@@ -323,6 +405,7 @@ export function buildProteinSummary(input: {
     hour,
     consumedLines,
     expectedLines,
+    optionalLines,
   }
 }
 
