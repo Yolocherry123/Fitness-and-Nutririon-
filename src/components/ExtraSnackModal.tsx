@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Modal } from './Modal'
 import {
   EXTRA_SNACK_SOURCES,
@@ -39,10 +39,15 @@ export function ExtraSnackModal({
 }) {
   const [snackId, setSnackId] = useState<ExtraSnackId>(initialSnack)
   const [portion, setPortion] = useState<ProteinPortion>(initialPortion)
+  const selectedRef = useRef<HTMLDivElement | null>(null)
   const snack = EXTRA_SNACK_SOURCES.find((s) => s.id === snackId)
   const protein = proteinForExtraSnack(snackId, portion)
   const carbs = carbsForExtraSnack(snackId, portion)
   const label = snack?.label ?? 'Extra snack'
+
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [snackId])
 
   return (
     <Modal
@@ -85,38 +90,50 @@ export function ExtraSnackModal({
       }
     >
       <div className="stack">
-        {EXTRA_SNACK_SOURCES.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            className={`check-row${snackId === s.id ? ' done' : ''}`}
-            onClick={() => setSnackId(s.id)}
-          >
-            <span className="check-box">{snackId === s.id ? '✓' : ''}</span>
-            <span className="check-meta">
-              <span className="check-title">{s.label}</span>
-              <span className="check-sub">
-                {s.sub ? `${s.sub} · ` : ''}~{s.byPortion.normal} g protein (normal)
-              </span>
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="section-label" style={{ marginTop: 14 }}>
-        Portion
-      </div>
-      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        {PORTIONS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            className={`chip${portion === p.id ? ' on' : ''}`}
-            onClick={() => setPortion(p.id)}
-          >
-            {p.label} · ~{proteinForExtraSnack(snackId, p.id)} g
-          </button>
-        ))}
+        {EXTRA_SNACK_SOURCES.map((s) => {
+          const selected = snackId === s.id
+          return (
+            <div
+              key={s.id}
+              ref={selected ? selectedRef : undefined}
+              className="card"
+              style={{ padding: '10px 12px' }}
+            >
+              <button
+                type="button"
+                className={`check-row${selected ? ' done' : ''}`}
+                style={{ margin: 0, padding: '6px 0' }}
+                onClick={() => setSnackId(s.id)}
+              >
+                <span className="check-box">{selected ? '✓' : ''}</span>
+                <span className="check-meta">
+                  <span className="check-title">{s.label}</span>
+                  <span className="check-sub">
+                    {s.sub ? `${s.sub} · ` : ''}~{s.byPortion.normal} g protein
+                    (normal)
+                  </span>
+                </span>
+              </button>
+              {selected && (
+                <div
+                  className="row"
+                  style={{ gap: 6, marginTop: 8, flexWrap: 'wrap' }}
+                >
+                  {PORTIONS.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`chip${portion === p.id ? ' on' : ''}`}
+                      onClick={() => setPortion(p.id)}
+                    >
+                      {p.label} · ~{proteinForExtraSnack(s.id, p.id)} g
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       <p className="small muted" style={{ marginTop: 10, marginBottom: 0 }}>

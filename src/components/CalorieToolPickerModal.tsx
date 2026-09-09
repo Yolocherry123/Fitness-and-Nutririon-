@@ -18,7 +18,11 @@ const TOOLS: { id: CalorieToolChoice; label: string; sub?: string }[] = [
     label: 'Extra snack / nuts',
     sub: 'Roasted peanuts, mixed nuts, paneer, curd…',
   },
-  { id: 'other', label: 'Other', sub: 'Pick from optional tools below' },
+  {
+    id: 'other',
+    label: 'Other snack / small meal',
+    sub: 'Pick a snack and portion to log',
+  },
 ]
 
 export function CalorieToolPickerModal({

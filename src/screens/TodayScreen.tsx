@@ -118,6 +118,9 @@ export function TodayScreen() {
   const [eggsOpen, setEggsOpen] = useState(false)
   const [eggsDefaultCount, setEggsDefaultCount] = useState<1 | 2 | 3>(2)
   const [snackOpen, setSnackOpen] = useState(false)
+  const [snackInitialId, setSnackInitialId] = useState<
+    import('../lib/proteinDb').ExtraSnackId
+  >('roasted_peanuts')
   const [sattuOpen, setSattuOpen] = useState<
     'calories' | 'convenience' | 'protein_caveat' | null
   >(null)
@@ -273,18 +276,20 @@ export function TodayScreen() {
       setSattuOpen('calories')
       return
     }
-    if (choice === 'extra_snack') {
+    if (choice === 'extra_snack' || choice === 'other') {
       setCaloriePickerOpen(false)
+      setSnackInitialId(choice === 'other' ? 'other' : 'roasted_peanuts')
+      // Keep a real picker open — "Other" used to only flip a toggle and left
+      // nothing selectable.
       setSnackOpen(true)
-      return
-    }
-    if (choice === 'other') {
-      setCaloriePickerOpen(false)
-      setShowOptionalExtras(true)
+      if (choice === 'other') setShowOptionalExtras(true)
       return
     }
 
-    const matchers: Record<Exclude<CalorieToolChoice, 'sattu' | 'extra_snack' | 'other'>, RegExp> = {
+    const matchers: Record<
+      Exclude<CalorieToolChoice, 'sattu' | 'extra_snack' | 'other'>,
+      RegExp
+    > = {
       banana: /banana/i,
       pb_sandwich: /peanut butter sandwich|pb sandwich/i,
       milk: /night milk|milk.*curd/i,
@@ -408,6 +413,7 @@ export function TodayScreen() {
     }
 
     if (!currentlyDone && isExtraSnackAction(action)) {
+      setSnackInitialId('roasted_peanuts')
       setSnackOpen(true)
       return
     }
@@ -1029,6 +1035,8 @@ export function TodayScreen() {
 
       {snackOpen && (
         <ExtraSnackModal
+          key={snackInitialId}
+          initialSnack={snackInitialId}
           onCancel={() => setSnackOpen(false)}
           onSave={async ({
             estimatedProtein,
