@@ -592,7 +592,7 @@ export function TodayScreen() {
       {tipOpen && (
         <div className="tip-banner">
           <p>
-            Optional items never count as failure. Focus on main meals, training, and creatine —
+            Suggested foods never count as failure. Focus on main meals, training, and creatine —
             extras only when useful.
           </p>
           <button type="button" className="btn btn-secondary" onClick={dismissTip}>
@@ -694,10 +694,10 @@ export function TodayScreen() {
         {optionalExtras.length > 0 && (
           <div className="tools-switch-row">
             <div>
-              <div className="tools-switch-label">Optional tools</div>
+              <div className="tools-switch-label">Suggested foods</div>
               <div className="small faint">
                 {showOptionalExtras
-                  ? 'Showing sattu, snacks, and other extras'
+                  ? 'Showing sattu, snacks, and other suggested extras'
                   : `${optionalExtras.length} hidden — sattu, snacks, etc.`}
               </div>
             </div>
@@ -705,7 +705,7 @@ export function TodayScreen() {
               type="button"
               role="switch"
               aria-checked={showOptionalExtras}
-              aria-label="Show optional tools"
+              aria-label="Show suggested foods"
               className={`switch${showOptionalExtras ? ' on' : ''}`}
               onClick={() => setShowOptionalExtras((v) => !v)}
             />
@@ -721,14 +721,14 @@ export function TodayScreen() {
                 +{protein.expectedRemainingProtein} planned
               </span>
               {optionalProteinTotal > 0 && (
-                <span className="muted">+{optionalProteinTotal} opt</span>
+                <span className="muted">+{optionalProteinTotal} sug</span>
               )}
               <span className="faint">/ {protein.targetProtein}g</span>
             </div>
             <div
               className="macro-track"
               role="img"
-              aria-label={`Protein ${protein.consumedProtein}g eaten, ${protein.expectedRemainingProtein}g planned left, ${optionalProteinTotal}g from optionals, target ${protein.targetProtein}g`}
+              aria-label={`Protein ${protein.consumedProtein}g eaten, ${protein.expectedRemainingProtein}g planned left, ${optionalProteinTotal}g from suggested foods, target ${protein.targetProtein}g`}
             >
               <span
                 className="macro-seg optional"
@@ -761,13 +761,13 @@ export function TodayScreen() {
               {optionalProteinTotal > 0 && (
                 <span className="macro-legend-item">
                   <i className="macro-swatch optional" />
-                  Optionals {optionalProteinTotal}g
+                  Suggested {optionalProteinTotal}g
                 </span>
               )}
             </div>
             {optionalProteinTotal > 0 && (
               <p className="macro-optional-hint">
-                With optionals ~{projectedProteinR}g
+                With suggested ~{projectedProteinR}g
                 {stillNeedProtein > 0
                   ? ` · still need ~${stillNeedProtein}g`
                   : ' · hits minimum'}
@@ -783,14 +783,14 @@ export function TodayScreen() {
                 +{protein.expectedRemainingCarbs} planned
               </span>
               {optionalCarbsTotal > 0 && (
-                <span className="muted">+{optionalCarbsTotal} opt</span>
+                <span className="muted">+{optionalCarbsTotal} sug</span>
               )}
               <span className="faint">/ {protein.carbTarget}g</span>
             </div>
             <div
               className="macro-track"
               role="img"
-              aria-label={`Carbs ${protein.consumedCarbs}g eaten, ${protein.expectedRemainingCarbs}g planned left, ${optionalCarbsTotal}g from optionals, target ${protein.carbTarget}g`}
+              aria-label={`Carbs ${protein.consumedCarbs}g eaten, ${protein.expectedRemainingCarbs}g planned left, ${optionalCarbsTotal}g from suggested foods, target ${protein.carbTarget}g`}
             >
               <span
                 className="macro-seg optional"
@@ -823,13 +823,13 @@ export function TodayScreen() {
               {optionalCarbsTotal > 0 && (
                 <span className="macro-legend-item">
                   <i className="macro-swatch optional" />
-                  Optionals {optionalCarbsTotal}g
+                  Suggested {optionalCarbsTotal}g
                 </span>
               )}
             </div>
             {optionalCarbsTotal > 0 && (
               <p className="macro-optional-hint">
-                With optionals ~{projectedCarbsR}g
+                With suggested ~{projectedCarbsR}g
                 {stillNeedCarbs > 0
                   ? ` · still need ~${stillNeedCarbs}g`
                   : ' · hits minimum'}
@@ -904,7 +904,7 @@ export function TodayScreen() {
             ))}
             {(protein.optionalLines.length > 0 || optionalBoost.proteinG > 0) && (
               <>
-                <div className="section-label">If optionals taken</div>
+                <div className="section-label">If suggested foods taken</div>
                 {protein.optionalLines.map((l) => (
                   <div key={l.foodActionId} className="small muted" style={{ marginBottom: 4 }}>
                     {l.name}: ~{l.grams} g protein
@@ -916,7 +916,7 @@ export function TodayScreen() {
                   </div>
                 )}
                 <p className="small muted" style={{ marginTop: 6 }}>
-                  Projected with optionals ~{projectedProteinR}g protein
+                  Projected with suggested ~{projectedProteinR}g protein
                   {stillNeedProtein > 0
                     ? ` · still ~${stillNeedProtein}g short of minimum`
                     : ' · covers minimum'}
@@ -955,7 +955,10 @@ export function TodayScreen() {
                 key={a.id}
                 action={a}
                 done={done}
-                pulsing={pulseId === a.id || pulseId === EXTRA_SNACK_ACTION_ID && isExtraSnackAction(a)}
+                pulsing={
+                  pulseId === a.id ||
+                  (pulseId === EXTRA_SNACK_ACTION_ID && isExtraSnackAction(a))
+                }
                 detail={doneMap.get(a.id)}
                 milkPowder={
                   !!a.allowsMilkPowderSub && !!profile?.milkPowderSubstitute
