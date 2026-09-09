@@ -19,14 +19,18 @@ export function ExtraSnackModal({
   subtitle,
   initialSnack = 'roasted_peanuts',
   initialPortion = 'normal',
+  canClear = false,
   onCancel,
+  onClear,
   onSave,
 }: {
   title?: string
   subtitle?: string
   initialSnack?: ExtraSnackId
   initialPortion?: ProteinPortion
+  canClear?: boolean
   onCancel: () => void
+  onClear?: () => void
   onSave: (result: {
     snackId: ExtraSnackId
     portion: ProteinPortion
@@ -83,6 +87,11 @@ export function ExtraSnackModal({
           >
             Log snack · ~{protein} g protein
           </button>
+          {canClear && onClear && (
+            <button type="button" className="btn btn-secondary btn-block" onClick={onClear}>
+              Clear logged snacks
+            </button>
+          )}
           <button type="button" className="btn btn-ghost btn-block" onClick={onCancel}>
             Cancel
           </button>

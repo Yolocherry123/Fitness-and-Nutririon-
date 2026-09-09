@@ -202,20 +202,38 @@ export function buildProteinChecklistSuggestions(input: {
       goal: 'logged',
     })
   }
-  for (const c of snackCompletions) {
-    const label =
-      c.notes?.replace(/^Extra snack · /, '')?.replace(/ · (small|normal|large)$/i, '') ||
-      'Extra snack'
+  // One checklist row for all extra snacks (avoids duplicate clutter).
+  if (snackLogged) {
+    const totalP = round1(
+      snackCompletions.reduce((s, c) => s + (c.estimatedProtein ?? 0), 0),
+    )
+    const totalC = round1(
+      snackCompletions.reduce((s, c) => s + (c.estimatedCarbs ?? 0), 0),
+    )
+    const firstLabel =
+      snackCompletions[0]?.notes
+        ?.replace(/^Extra snack · /, '')
+        ?.replace(/ · (small|normal|large)$/i, '') || 'Extra snack'
+    const name =
+      snackCompletions.length === 1
+        ? firstLabel
+        : `Extra snacks (${snackCompletions.length})`
     out.push({
       kind: 'snack',
-      action: syntheticSnackAction({
-        id: c.foodActionId,
-        name: label,
-        proteinG: c.estimatedProtein ?? proteinForExtraSnack('roasted_peanuts'),
-      }),
+      action: {
+        ...syntheticSnackAction({
+          id: EXTRA_SNACK_ACTION_ID,
+          name,
+          proteinG: totalP,
+        }),
+        notes:
+          snackCompletions.length === 1
+            ? `${snackCompletions[0]?.notes?.replace(/^Extra snack · /, '') ?? ''} · tap to add another or clear`
+            : `${totalP}g protein logged · tap to add another or clear`,
+      },
       hint: 'Logged today.',
-      estimatedProteinG: c.estimatedProtein ?? 0,
-      estimatedCarbsG: c.estimatedCarbs,
+      estimatedProteinG: totalP,
+      estimatedCarbsG: totalC,
       goal: 'logged',
     })
   }
@@ -321,17 +339,16 @@ export function buildProteinChecklistSuggestions(input: {
     }
   }
 
-  // 1b) Extra snack (peanuts, nuts, paneer…) — food protein when still short
-  if (projectedProteinShort) {
+  // 1b) Extra snack (peanuts, nuts, paneer…) — only when none logged yet.
+  // If snacks are already logged, the single logged row lets the user add another.
+  if (projectedProteinShort && !snackLogged) {
     const remainingP = proteinGap - accountedProtein
     if (remainingP > 5) {
       const snackG = proteinForExtraSnack('roasted_peanuts', 'normal')
       pushFood({
         kind: 'snack',
         action: syntheticSnackAction({ proteinG: snackG }),
-        hint: snackLogged
-          ? `Add another snack — ~${snackG}g more protein (peanuts, nuts, paneer…).`
-          : `Suggested for protein — ~${snackG}g from roasted peanuts or similar.`,
+        hint: `Suggested for protein — ~${snackG}g from roasted peanuts or similar.`,
         estimatedProteinG: snackG,
         estimatedCarbsG: 6,
         goal: 'protein',
@@ -476,4 +493,8 @@ function dedupeSuggestions(
     deduped.push(s)
   }
   return deduped
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10
 }
