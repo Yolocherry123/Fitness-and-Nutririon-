@@ -5,6 +5,8 @@ export type CalorieToolChoice =
   | 'sattu'
   | 'pb_sandwich'
   | 'milk'
+  | 'chicken_250'
+  | 'chicken_330'
   | 'extra_snack'
   | 'other'
 
@@ -13,6 +15,16 @@ const TOOLS: { id: CalorieToolChoice; label: string; sub?: string }[] = [
   { id: 'sattu', label: 'Sattu Drink', sub: 'Flexible calories + some protein' },
   { id: 'pb_sandwich', label: 'PB Sandwich', sub: 'Bread + peanut butter' },
   { id: 'milk', label: 'Milk / milk-powder drink', sub: 'Liquid calories' },
+  {
+    id: 'chicken_250',
+    label: 'Chicken 250 g',
+    sub: 'Bone-in · ~28 g protein (est.)',
+  },
+  {
+    id: 'chicken_330',
+    label: 'Chicken 330 g',
+    sub: 'Bone-in · ~37 g protein (est.)',
+  },
   {
     id: 'extra_snack',
     label: 'Extra snack / nuts',
