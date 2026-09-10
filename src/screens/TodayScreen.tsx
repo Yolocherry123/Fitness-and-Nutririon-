@@ -327,9 +327,43 @@ export function TodayScreen() {
       if (choice === 'other') setShowOptionalExtras(true)
       return
     }
+    if (choice === 'chicken_250' || choice === 'chicken_330') {
+      const grams = choice === 'chicken_250' ? 250 : 330
+      const qty = `${grams} g`
+      const proteinG = chickenProteinEstimate('BONE_IN', qty)
+      const id = `calorie-tool:${choice}`
+      const now = new Date().toISOString()
+      await db.completions.put({
+        id: `${date}:${id}`,
+        date,
+        foodActionId: id,
+        completed: true,
+        logMode: 'APPROXIMATE',
+        chickenMeasure: 'BONE_IN',
+        actualQuantity: qty,
+        estimatedProtein: proteinG,
+        estimatedCarbs: 0,
+        proteinBreakdown: [
+          {
+            label: `bone-in chicken ${qty}`,
+            grams: proteinG,
+            source: 'APPROXIMATION',
+          },
+        ],
+        notes: `Chicken ${qty} bone-in · ~${proteinG} g protein (est.)`,
+        updatedAt: now,
+      })
+      setPulseId(id)
+      window.setTimeout(() => setPulseId(null), 420)
+      setCaloriePickerOpen(false)
+      return
+    }
 
     const matchers: Record<
-      Exclude<CalorieToolChoice, 'sattu' | 'extra_snack' | 'other'>,
+      Exclude<
+        CalorieToolChoice,
+        'sattu' | 'extra_snack' | 'other' | 'chicken_250' | 'chicken_330'
+      >,
       RegExp
     > = {
       banana: /banana/i,
